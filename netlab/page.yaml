@@ -3,27 +3,40 @@
 # leave a blank line between paragraphs. Refer to YOUR network and YOUR evidence.
 # Never put your name or full student ID here: the page is public.
 
-repository: https://github.com/YOUR-USERNAME/YOUR-REPOSITORY
+repository: https://github.com/fidelismee/netlab.git
 
 answers:
   planes:
     question: "Where are the data, control and management planes in your network?"
-    answer: ""
+    answer: |
+      The data plane is the three Linux bridges, s1, s2 and s3, forwarding Ethernet frames between my six hosts. They learn MAC addresses and decide which port to forward a frame through. There is no separate controller in my network, so the control-plane behaviour is handled locally by the Linux bridges themselves. The management plane is represented by my topology.yaml file and the Python scripts that check the description, build the Mininet network and generate its documentation.
+
   learning:
     question: "How did your switches learn which port leads to each host? Use your MAC table evidence."
-    answer: ""
+    answer: |
+      The switches learned automatically from the source MAC address of Ethernet frames arriving on each port. I did not manually configure any MAC-to-port mappings. In my MAC table evidence, s1 learned MAC 00:00:00:00:00:01 on port 1 and 00:00:00:00:00:02 on port 2. The MAC addresses of hosts connected through the other switches were learned through port 3. This shows that the switch builds its forwarding table by observing traffic.
+
   kind:
     question: "Which of the four kinds of programmability is this assignment (a network described as data, then built and documented by scripts)? Why isn't it any of the other three?"
-    answer: ""
+    answer: |
+      This assignment is data-driven programmability because the network is described as structured data in topology.yaml. The Python programs read that data and use it to create the Mininet network and generate the web page. Changing the data changes both outputs without having to manually configure every device. It is not manual configuration because the network is created automatically from the description. It is also not based on a separate SDN controller controlling forwarding decisions, and it is not changing the packet-processing behaviour of the switches themselves. The main programmable object in this assignment is the structured representation of the network.
+
   two_am:
     question: "Week 1's 2 a.m. change on 40 switches: what would be different if those switches were described like your network?"
-    answer: ""
+    answer: |
+      If the 40 switches were described as structured data like my network, I would change the network description instead of manually logging in to every switch and repeating the same commands. The description could be checked for mistakes before anything was changed, and a script could apply the change consistently to all of the required devices. Git would also record exactly what changed and allow the previous version to be inspected if something went wrong. This would make a large 2 a.m. change more repeatable and less error-prone.
+
   model:
     question: "What's the difference between your network's data model and its serialisation? Use YAML and JSON as the example."
-    answer: ""
+    answer: |
+      The data model is the information that describes my network: its switches, hosts, IPv4 and IPv6 addresses, and links. The serialisation is the format used to store that information in a file. topology.yaml and topology.json can represent the same network data model even though their syntax is different. YAML uses indentation and a more human-readable style, while JSON uses objects, arrays, braces and brackets. Changing the serialisation does not necessarily change the network being represented.
+
   check:
     question: "Why is it better to catch bad data in check() than with pingall? What did IPv6 notice about a duplicate address that IPv4 didn't?"
-    answer: ""
+    answer: |
+      It is better to catch bad data in check() because the error is detected before Mininet builds the network. My bad.yaml evidence shows that check() found both duplicate addresses and the link to the nonexistent switch s9 immediately. Relying only on pingall would mean building a broken network first and then trying to diagnose its symptoms. In my duplicate-address experiment, IPv6 detected that fd00:1945::1 was already in use and marked the duplicate address as dadfailed using Duplicate Address Detection. IPv4 accepted the duplicate 10.45.0.1 address as a secondary address without an equivalent built-in check.
+
   git:
     question: "What does your Git history give you that copying files into folders named topology-v2-final wouldn't?"
-    answer: ""
+    answer: |
+      Git gives me a history of exactly how the network developed. My commits show separate stages such as the starting topology, adding another switch and host, adding duplicate-address checking, designing the three-switch network, adding validation evidence and collecting the running-network evidence. Unlike folders with names such as topology-v2-final, Git records which lines changed, when each change was committed and the reason for the change through the commit message. I can compare versions with git diff and return to an earlier version without keeping many manual copies of the same files.
