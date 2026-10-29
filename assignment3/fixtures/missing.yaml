@@ -1,0 +1,27 @@
+# Assignment failure: r4 has no route to the h1/h2 summary.
+student_id_last4: "1945"
+routers: [r1, r2, r3, r4]
+lans:
+  - {name: lan-h1, network: 10.45.16.0/24, router: r1, host: h1}
+  - {name: lan-h2, network: 10.45.17.0/24, router: r2, host: h2}
+  - {name: lan-h3, network: 10.45.32.0/24, router: r3, host: h3}
+  - {name: lan-h4, network: 10.45.48.0/24, router: r4, host: h4}
+links:
+  - [r1, r2, 10.45.250.0/30]
+  - [r2, r3, 10.45.250.4/30]
+  - [r3, r4, 10.45.250.8/30]
+  - [r4, r1, 10.45.250.12/30]
+routes:
+  r1:
+    - {to: 10.45.17.0/24, via: 10.45.250.2}
+    - {to: 10.45.32.0/24, via: 10.45.250.2}
+    - {to: 10.45.48.0/24, via: 10.45.250.13}
+  r2:
+    - {to: 10.45.16.0/24, via: 10.45.250.1}
+    - {to: 10.45.32.0/24, via: 10.45.250.6}
+    - {to: 10.45.48.0/24, via: 10.45.250.6}
+  r3:
+    - {to: 10.45.16.0/23, via: 10.45.250.5}
+    - {to: 10.45.48.0/24, via: 10.45.250.10}
+  r4:
+    - {to: 10.45.32.0/24, via: 10.45.250.9}

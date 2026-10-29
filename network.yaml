@@ -1,0 +1,65 @@
+# network.yaml: your routed network, as data. A starting point to change into your own design.
+#
+#   python3 build_routed.py network.yaml      checks it, then builds it in Mininet
+#   python3 make_page3.py network.yaml        checks it, then writes docs/week3/index.html
+#
+# This design uses only the student ID suffix 1945. Don't put a full student ID here.
+#
+# Each LAN has one router (.1 on the LAN) and one host (.10).
+# On each link, the first router named is .1 and the second is .2.
+# Four routers form a ring, so there is a redundant physical path. The first two LANs
+# are adjacent /24 networks and can be represented exactly by the 10.45.16.0/23 summary.
+
+student_id_last4: "1945"
+
+routers: [r1, r2, r3, r4]
+
+lans:
+  - name: lan-h1
+    network: 10.45.16.0/24
+    router: r1
+    host: h1
+  - name: lan-h2
+    network: 10.45.17.0/24
+    router: r2
+    host: h2
+  - name: lan-h3
+    network: 10.45.32.0/24
+    router: r3
+    host: h3
+  - name: lan-h4
+    network: 10.45.48.0/24
+    router: r4
+    host: h4
+
+links:
+  - [r1, r2, 10.45.250.0/30]
+  - [r2, r3, 10.45.250.4/30]
+  - [r3, r4, 10.45.250.8/30]
+  - [r4, r1, 10.45.250.12/30]
+
+routes:
+  r1:
+    - to: 10.45.17.0/24
+      via: 10.45.250.2
+    - to: 10.45.32.0/24
+      via: 10.45.250.2
+    - to: 10.45.48.0/24
+      via: 10.45.250.13
+  r2:
+    - to: 10.45.16.0/24
+      via: 10.45.250.1
+    - to: 10.45.32.0/24
+      via: 10.45.250.6
+    - to: 10.45.48.0/24
+      via: 10.45.250.6
+  r3:
+    - to: 10.45.16.0/23
+      via: 10.45.250.5
+    - to: 10.45.48.0/24
+      via: 10.45.250.10
+  r4:
+    - to: 10.45.16.0/23
+      via: 10.45.250.14
+    - to: 10.45.32.0/24
+      via: 10.45.250.9
