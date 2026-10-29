@@ -1,0 +1,21 @@
+# routes.yaml: the routes from Step 4, as data, using the student ID suffix 1945.
+#
+#   python3 routers.py --id 1945 --routes routes.yaml
+#
+# checks every route first, then switches forwarding on and applies them. IPv4 only.
+
+r1:
+  - to: 10.45.32.0/24
+    via: 10.45.12.2
+  - to: 10.45.32.0/20
+    via: 10.45.13.2
+
+r3:
+  - to: 10.45.32.0/20
+    via: 10.45.23.2
+  - to: 10.45.1.0/24
+    via: 10.45.13.1
+
+r2:
+  - to: 10.45.1.0/24
+    via: 10.45.12.1

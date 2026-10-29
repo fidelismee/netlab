@@ -1,0 +1,24 @@
+== h1 to h2 with routes.yaml ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+64 bytes from 10.45.32.10: icmp_seq=1 ttl=62 time=0.133 ms
+64 bytes from 10.45.32.10: icmp_seq=2 ttl=62 time=0.077 ms
+
+--- 10.45.32.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1007ms
+rtt min/avg/max/mdev = 0.077/0.105/0.133/0.028 ms
+== h1 to h3 with routes.yaml ==
+PING 10.45.33.10 (10.45.33.10) 56(84) bytes of data.
+64 bytes from 10.45.33.10: icmp_seq=1 ttl=62 time=0.097 ms
+64 bytes from 10.45.33.10: icmp_seq=2 ttl=62 time=0.071 ms
+
+--- 10.45.33.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 0.071/0.084/0.097/0.013 ms
+== h2 to h3 with routes.yaml ==
+PING 10.45.33.10 (10.45.33.10) 56(84) bytes of data.
+64 bytes from 10.45.33.10: icmp_seq=1 ttl=63 time=0.073 ms
+64 bytes from 10.45.33.10: icmp_seq=2 ttl=63 time=0.053 ms
+
+--- 10.45.33.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1007ms
+rtt min/avg/max/mdev = 0.053/0.063/0.073/0.010 ms

@@ -1,0 +1,14 @@
+== h1 to r1 gateway before routing ==
+PING 10.45.1.1 (10.45.1.1) 56(84) bytes of data.
+64 bytes from 10.45.1.1: icmp_seq=1 ttl=64 time=0.136 ms
+64 bytes from 10.45.1.1: icmp_seq=2 ttl=64 time=0.056 ms
+
+--- 10.45.1.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1014ms
+rtt min/avg/max/mdev = 0.056/0.096/0.136/0.040 ms
+== h1 to h2 before routing ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+
+--- 10.45.32.10 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1004ms
+

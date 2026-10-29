@@ -1,0 +1,18 @@
+== h1 to h2 over IPv6 ==
+PING fd00:1945:32::10 (fd00:1945:32::10) 56 data bytes
+64 bytes from fd00:1945:32::10: icmp_seq=1 ttl=62 time=0.218 ms
+64 bytes from fd00:1945:32::10: icmp_seq=2 ttl=62 time=0.120 ms
+64 bytes from fd00:1945:32::10: icmp_seq=3 ttl=62 time=0.074 ms
+
+--- fd00:1945:32::10 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2021ms
+rtt min/avg/max/mdev = 0.074/0.137/0.218/0.060 ms
+== h1 to h3 over IPv6 ==
+PING fd00:1945:33::10 (fd00:1945:33::10) 56 data bytes
+64 bytes from fd00:1945:33::10: icmp_seq=1 ttl=62 time=0.166 ms
+64 bytes from fd00:1945:33::10: icmp_seq=2 ttl=62 time=0.132 ms
+64 bytes from fd00:1945:33::10: icmp_seq=3 ttl=62 time=0.083 ms
+
+--- fd00:1945:33::10 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 0.083/0.127/0.166/0.034 ms

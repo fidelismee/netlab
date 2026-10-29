@@ -1,0 +1,3 @@
+Fix the routes and try again: nothing was configured.
+PROBLEM: h2 to h1: r2 has no route to 10.45.1.10
+PROBLEM: h3 to h1: r2 has no route to 10.45.1.10

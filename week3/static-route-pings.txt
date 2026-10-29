@@ -1,0 +1,16 @@
+== h1 to h2 after static routes ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+64 bytes from 10.45.32.10: icmp_seq=1 ttl=62 time=0.101 ms
+64 bytes from 10.45.32.10: icmp_seq=2 ttl=62 time=0.071 ms
+
+--- 10.45.32.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1004ms
+rtt min/avg/max/mdev = 0.071/0.086/0.101/0.015 ms
+== h1 to h3 after static routes ==
+PING 10.45.33.10 (10.45.33.10) 56(84) bytes of data.
+64 bytes from 10.45.33.10: icmp_seq=1 ttl=62 time=0.112 ms
+64 bytes from 10.45.33.10: icmp_seq=2 ttl=62 time=0.089 ms
+
+--- 10.45.33.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+rtt min/avg/max/mdev = 0.089/0.100/0.112/0.011 ms
