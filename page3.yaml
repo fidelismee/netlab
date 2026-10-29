@@ -1,0 +1,31 @@
+# page3.yaml: the words on your Week 3 page. make_page3.py puts each answer under its question.
+# A few sentences each, in your own words, about YOUR network and YOUR evidence.
+# Leave a blank line between paragraphs. Never put your name or full student ID here.
+
+repository: https://github.com/fidelismee/netlab
+
+answers:
+  design:
+    question: "Describe your design: why these routers, LANs and links, and how you chose the addresses."
+    answer: |
+      I used four routers in a ring: r1-r2-r3-r4-r1. Each router has one LAN and one host, so the design meets the four-router and four-LAN requirements while the ring gives every router pair a redundant physical direction around the network. The LANs are 10.45.16.0/24, 10.45.17.0/24, 10.45.32.0/24 and 10.45.48.0/24. The four transit links use separate /30 networks from 10.45.250.0/30 through 10.45.250.12/30, so no LAN or link overlaps another.
+
+      I placed the first two LANs next to each other on a binary boundary so 10.45.16.0/23 can represent both exactly. The other two LANs are outside that range. The router and host addresses follow the starter convention: .1 and .10 on each LAN, and the first and second routers named on each link use the first and second usable addresses.
+  summary:
+    question: "Which route summarises several LANs? Which networks does it cover, why is it correct, and what else would it attract if you added a network inside its range?"
+    answer: |
+      The summary route is 10.45.16.0/23. It appears on r3 via 10.45.250.5 and on r4 via 10.45.250.14. It covers 10.45.16.0/24 (h1) and 10.45.17.0/24 (h2), but it does not cover the h3 or h4 LANs. The two route lookups in evidence3/summary.txt show r4 selecting the same next hop, 10.45.250.14, for both 10.45.16.10 and 10.45.17.10.
+
+      A /23 spans every address from 10.45.16.0 to 10.45.17.255. If another subnet were added anywhere in that range, the summary would attract its traffic too. That would only be correct if the new subnet were reachable through the same next hop; otherwise a more-specific route would be needed.
+  failure:
+    question: "When you took a link down, what happened, and why couldn't your routes recover even though another path existed? What would have recovered?"
+    answer: |
+      I disabled the actively used r1-r4 link while tracing from h1 to h4. The bounded trace returned only asterisks, and r1's route lookup reported "Network is unreachable". Linux removed the connected 10.45.250.12/30 route and the static routes that depended on that link. Bringing the physical link up restored the connected route, but it did not recreate the removed static routes; after I reapplied r1's h4 route and r4's return summary, the h1-to-h4 ping succeeded again.
+
+      The ring still had a physical path through r2 and r3, but the static routing table had no alternate h4 route on r1, so it could not select that path or reconverge automatically. A dynamic routing protocol such as OSPF could have detected the failure and installed the surviving path. A correctly designed tracked or floating backup static route could also have provided failover.
+  control_plane:
+    question: "In your network, what was the control plane? Who worked out the routes, and what does that mean for a network of 40 routers?"
+    answer: |
+      I was the control plane: I chose the topology, calculated each static route and summary, and stored those decisions in network.yaml. build_routed.py checked every ordered host path before it configured the Linux routing tables, then applied the data consistently. The routers only forwarded according to those installed tables; they did not exchange routing information.
+
+      On 40 routers, calculating and maintaining all routes by hand would be slow and error-prone, and a failure would not automatically update the paths. Describing routes as checked data improves consistency, but a real network of that size would normally use a routing protocol or controller to calculate routes and react to changes.
