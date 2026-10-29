@@ -1,0 +1,44 @@
+== r1-r4 down: bounded h1 to h4 trace ==
+traceroute to 10.45.48.10 (10.45.48.10), 5 hops max, 60 byte packets
+ 1  *
+ 2  *
+ 3  *
+ 4  *
+ 5  *
+== r1 lookup for h4 while r1-r4 is down ==
+RTNETLINK answers: Network is unreachable
+== r1 routes while r1-r4 is down ==
+10.45.16.0/24 dev r1-eth0 proto kernel scope link src 10.45.16.1 
+10.45.17.0/24 via 10.45.250.2 dev r1-eth1 
+10.45.32.0/24 via 10.45.250.2 dev r1-eth1 
+10.45.250.0/30 dev r1-eth1 proto kernel scope link src 10.45.250.1 
+== r4 routes while r1-r4 is down ==
+10.45.32.0/24 via 10.45.250.9 dev r4-eth1 
+10.45.48.0/24 dev r4-eth0 proto kernel scope link src 10.45.48.1 
+10.45.250.8/30 dev r4-eth1 proto kernel scope link src 10.45.250.10 
+== r1 routes after the physical link is restored ==
+10.45.16.0/24 dev r1-eth0 proto kernel scope link src 10.45.16.1 
+10.45.17.0/24 via 10.45.250.2 dev r1-eth1 
+10.45.32.0/24 via 10.45.250.2 dev r1-eth1 
+10.45.250.0/30 dev r1-eth1 proto kernel scope link src 10.45.250.1 
+10.45.250.12/30 dev r1-eth2 proto kernel scope link src 10.45.250.14 
+== r4 routes after the physical link is restored ==
+10.45.32.0/24 via 10.45.250.9 dev r4-eth1 
+10.45.48.0/24 dev r4-eth0 proto kernel scope link src 10.45.48.1 
+10.45.250.8/30 dev r4-eth1 proto kernel scope link src 10.45.250.10 
+10.45.250.12/30 dev r4-eth2 proto kernel scope link src 10.45.250.13 
+== h1 to h4 before reapplying the removed static route ==
+PING 10.45.48.10 (10.45.48.10) 56(84) bytes of data.
+From 10.45.16.1 icmp_seq=1 Destination Net Unreachable
+
+--- 10.45.48.10 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+== h1 to h4 after reapplying both removed static routes ==
+PING 10.45.48.10 (10.45.48.10) 56(84) bytes of data.
+64 bytes from 10.45.48.10: icmp_seq=1 ttl=62 time=0.059 ms
+64 bytes from 10.45.48.10: icmp_seq=2 ttl=62 time=0.048 ms
+
+--- 10.45.48.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1030ms
+rtt min/avg/max/mdev = 0.048/0.053/0.059/0.005 ms

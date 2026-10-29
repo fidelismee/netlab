@@ -1,0 +1,63 @@
+sh echo "== h1 to h2 ==" > evidence3/connectivity.txt
+h1 ping -c 1 10.45.17.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h1 to h3 ==" >> evidence3/connectivity.txt
+h1 ping -c 1 10.45.32.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h1 to h4 ==" >> evidence3/connectivity.txt
+h1 ping -c 1 10.45.48.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h2 to h1 ==" >> evidence3/connectivity.txt
+h2 ping -c 1 10.45.16.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h2 to h3 ==" >> evidence3/connectivity.txt
+h2 ping -c 1 10.45.32.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h2 to h4 ==" >> evidence3/connectivity.txt
+h2 ping -c 1 10.45.48.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h3 to h1 ==" >> evidence3/connectivity.txt
+h3 ping -c 1 10.45.16.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h3 to h2 ==" >> evidence3/connectivity.txt
+h3 ping -c 1 10.45.17.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h3 to h4 ==" >> evidence3/connectivity.txt
+h3 ping -c 1 10.45.48.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h4 to h1 ==" >> evidence3/connectivity.txt
+h4 ping -c 1 10.45.16.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h4 to h2 ==" >> evidence3/connectivity.txt
+h4 ping -c 1 10.45.17.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== h4 to h3 ==" >> evidence3/connectivity.txt
+h4 ping -c 1 10.45.32.10 >> evidence3/connectivity.txt 2>&1
+sh echo "== r1 ==" > evidence3/routes.txt
+r1 ip route >> evidence3/routes.txt
+sh echo "== r2 ==" >> evidence3/routes.txt
+r2 ip route >> evidence3/routes.txt
+sh echo "== r3 ==" >> evidence3/routes.txt
+r3 ip route >> evidence3/routes.txt
+sh echo "== r4 ==" >> evidence3/routes.txt
+r4 ip route >> evidence3/routes.txt
+sh echo "== h1 to h2 ==" > evidence3/traces.txt
+h1 traceroute -n -I 10.45.17.10 >> evidence3/traces.txt
+sh echo "== h1 to h3 ==" >> evidence3/traces.txt
+h1 traceroute -n -I 10.45.32.10 >> evidence3/traces.txt
+sh echo "== h1 to h4 ==" >> evidence3/traces.txt
+h1 traceroute -n -I 10.45.48.10 >> evidence3/traces.txt
+sh echo "== r4 lookup for h1 (covered by 10.45.16.0/23) ==" > evidence3/summary.txt
+r4 ip route get 10.45.16.10 >> evidence3/summary.txt
+sh echo "== r4 lookup for h2 (covered by 10.45.16.0/23) ==" >> evidence3/summary.txt
+r4 ip route get 10.45.17.10 >> evidence3/summary.txt
+link r1 r4 down
+sh echo "== r1-r4 down: bounded h1 to h4 trace ==" > evidence3/failure.txt
+h1 traceroute -n -I -m 5 -w 1 -q 1 10.45.48.10 >> evidence3/failure.txt 2>&1
+sh echo "== r1 lookup for h4 while r1-r4 is down ==" >> evidence3/failure.txt
+r1 ip route get 10.45.48.10 >> evidence3/failure.txt 2>&1
+sh echo "== r1 routes while r1-r4 is down ==" >> evidence3/failure.txt
+r1 ip route >> evidence3/failure.txt
+sh echo "== r4 routes while r1-r4 is down ==" >> evidence3/failure.txt
+r4 ip route >> evidence3/failure.txt
+link r1 r4 up
+sh echo "== r1 routes after the physical link is restored ==" >> evidence3/failure.txt
+r1 ip route >> evidence3/failure.txt
+sh echo "== r4 routes after the physical link is restored ==" >> evidence3/failure.txt
+r4 ip route >> evidence3/failure.txt
+sh echo "== h1 to h4 before reapplying the removed static route ==" >> evidence3/failure.txt
+h1 ping -c 1 10.45.48.10 >> evidence3/failure.txt 2>&1
+r1 ip route add 10.45.48.0/24 via 10.45.250.13
+r4 ip route add 10.45.16.0/23 via 10.45.250.14
+sh echo "== h1 to h4 after reapplying both removed static routes ==" >> evidence3/failure.txt
+h1 ping -c 2 10.45.48.10 >> evidence3/failure.txt 2>&1
+exit

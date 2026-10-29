@@ -1,0 +1,6 @@
+== r4 lookup for h1 (covered by 10.45.16.0/23) ==
+10.45.16.10 via 10.45.250.14 dev r4-eth2 src 10.45.250.13 uid 0 
+    cache 
+== r4 lookup for h2 (covered by 10.45.16.0/23) ==
+10.45.17.10 via 10.45.250.14 dev r4-eth2 src 10.45.250.13 uid 0 
+    cache 

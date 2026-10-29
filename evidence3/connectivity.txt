@@ -1,0 +1,84 @@
+== h1 to h2 ==
+PING 10.45.17.10 (10.45.17.10) 56(84) bytes of data.
+64 bytes from 10.45.17.10: icmp_seq=1 ttl=62 time=0.089 ms
+
+--- 10.45.17.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.089/0.089/0.089/0.000 ms
+== h1 to h3 ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+64 bytes from 10.45.32.10: icmp_seq=1 ttl=61 time=0.067 ms
+
+--- 10.45.32.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.067/0.067/0.067/0.000 ms
+== h1 to h4 ==
+PING 10.45.48.10 (10.45.48.10) 56(84) bytes of data.
+64 bytes from 10.45.48.10: icmp_seq=1 ttl=62 time=0.113 ms
+
+--- 10.45.48.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.113/0.113/0.113/0.000 ms
+== h2 to h1 ==
+PING 10.45.16.10 (10.45.16.10) 56(84) bytes of data.
+64 bytes from 10.45.16.10: icmp_seq=1 ttl=62 time=0.047 ms
+
+--- 10.45.16.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.047/0.047/0.047/0.000 ms
+== h2 to h3 ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+64 bytes from 10.45.32.10: icmp_seq=1 ttl=62 time=0.039 ms
+
+--- 10.45.32.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.039/0.039/0.039/0.000 ms
+== h2 to h4 ==
+PING 10.45.48.10 (10.45.48.10) 56(84) bytes of data.
+64 bytes from 10.45.48.10: icmp_seq=1 ttl=61 time=0.083 ms
+
+--- 10.45.48.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.083/0.083/0.083/0.000 ms
+== h3 to h1 ==
+PING 10.45.16.10 (10.45.16.10) 56(84) bytes of data.
+64 bytes from 10.45.16.10: icmp_seq=1 ttl=61 time=0.039 ms
+
+--- 10.45.16.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.039/0.039/0.039/0.000 ms
+== h3 to h2 ==
+PING 10.45.17.10 (10.45.17.10) 56(84) bytes of data.
+64 bytes from 10.45.17.10: icmp_seq=1 ttl=62 time=0.036 ms
+
+--- 10.45.17.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.036/0.036/0.036/0.000 ms
+== h3 to h4 ==
+PING 10.45.48.10 (10.45.48.10) 56(84) bytes of data.
+64 bytes from 10.45.48.10: icmp_seq=1 ttl=62 time=0.038 ms
+
+--- 10.45.48.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.038/0.038/0.038/0.000 ms
+== h4 to h1 ==
+PING 10.45.16.10 (10.45.16.10) 56(84) bytes of data.
+64 bytes from 10.45.16.10: icmp_seq=1 ttl=62 time=0.033 ms
+
+--- 10.45.16.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.033/0.033/0.033/0.000 ms
+== h4 to h2 ==
+PING 10.45.17.10 (10.45.17.10) 56(84) bytes of data.
+64 bytes from 10.45.17.10: icmp_seq=1 ttl=61 time=0.045 ms
+
+--- 10.45.17.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.045/0.045/0.045/0.000 ms
+== h4 to h3 ==
+PING 10.45.32.10 (10.45.32.10) 56(84) bytes of data.
+64 bytes from 10.45.32.10: icmp_seq=1 ttl=62 time=0.060 ms
+
+--- 10.45.32.10 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.060/0.060/0.060/0.000 ms

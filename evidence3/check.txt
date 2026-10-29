@@ -1,0 +1,9 @@
+== assignment loop.yaml ==
+PROBLEM: h1 to h4: loop r1 -> r2 -> r1
+PROBLEM: h2 to h4: loop r2 -> r1 -> r2
+Fix the description and try again: nothing was built.
+
+== assignment missing.yaml ==
+Fix the description and try again: nothing was built.
+PROBLEM: h4 to h1: r4 has no route to 10.45.16.10
+PROBLEM: h4 to h2: r4 has no route to 10.45.17.10
