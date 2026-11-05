@@ -1,11 +1,12 @@
 {
-  "completed_through": 5,
+  "completed_through": 6,
   "results": {
     "0": "The flow table was empty and h1 to h2 had 100% packet loss.",
     "1": "pingall had 0% loss, the flood counter increased from 5 to 27 packets, and h3 captured all six ICMP packets in the h1-to-h2 exchange.",
     "2": "The ARP and destination-MAC rules kept 0% pingall loss, while h3 captured zero unrelated ICMP packets.",
     "3": "The equal-priority drop counted zero packets. The priority-40000 rule counted six; one cached h1-to-h3 reply escaped, h1-to-h2 worked, and h3-to-h1 failed.",
     "4": "Both test conversations worked. The controller installed a priority-0 table-miss and priority-1 reactive entries with 60-second idle timeouts.",
-    "5": "The existing h1-to-h2 conversation survived temporarily, new h1-to-h3 traffic failed, and h1-to-h2 failed after its reactive flows expired. The immediate controller query retained a stale is_connected=true value."
+    "5": "The existing h1-to-h2 conversation survived temporarily, new h1-to-h3 traffic failed, and h1-to-h2 failed after its reactive flows expired. The immediate controller query retained a stale is_connected=true value.",
+    "6": "After 15 seconds in standalone mode, h1-to-h3 received both replies through the local learning-switch fallback."
   }
 }

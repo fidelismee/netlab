@@ -1,0 +1,15 @@
+===== STEP 6: STANDALONE FAIL MODE =====
+$ ovs-vsctl set-fail-mode s1 standalone
+[exit status 0]
+$ ovs-vsctl get-fail-mode s1
+standalone
+[exit status 0]
+Waiting 15 seconds for standalone fallback...
+h1$ ping -c 2 10.45.0.3
+PING 10.45.0.3 (10.45.0.3) 56(84) bytes of data.
+64 bytes from 10.45.0.3: icmp_seq=1 ttl=64 time=0.420 ms
+64 bytes from 10.45.0.3: icmp_seq=2 ttl=64 time=0.212 ms
+
+--- 10.45.0.3 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1020ms
+rtt min/avg/max/mdev = 0.212/0.316/0.420/0.104 ms
