@@ -1,0 +1,63 @@
+Week 4 environment check
+Date: 2026-11-05
+Repository: /mnt/c/Users/faris/Documents/Programmable/netlab
+
+$ mn --topo single,3 --mac --switch ovs,datapath=user --controller none --ipbase 10.45.0.0/16
+/bin/bash: line 1: mn: command not found
+[exit status 127]
+
+$ command -v mn
+[no output; exit status 1]
+
+$ command -v ovs-ofctl
+[no output; exit status 1]
+
+$ command -v ovs-vsctl
+[no output; exit status 1]
+
+$ command -v ovs-testcontroller
+[no output; exit status 1]
+
+$ python3 -c 'import mininet; print(mininet.__file__)'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'mininet'
+
+$ wsl.exe -d Ubuntu-22.04 -e bash -lc 'for tool in mn ovs-ofctl ovs-vsctl ovs-testcontroller tcpdump; do command -v "$tool" || true; done'
+wsl: Failed to translate 'J:\My Drive\Fidel_Coding\Fidel_C\vcpkg'
+/usr/bin/tcpdump
+
+$ wsl.exe -d Ubuntu -e bash -lc 'for tool in mn ovs-ofctl ovs-vsctl ovs-testcontroller tcpdump; do command -v "$tool" || true; done'
+wsl: Failed to translate 'J:\My Drive\Fidel_Coding\Fidel_C\vcpkg'
+[no tool paths printed]
+
+$ docker version --format '{{.Server.Version}}'
+The command 'docker' could not be found in this WSL 2 distro.
+We recommend to activate the WSL integration in Docker Desktop settings.
+
+For details about using Docker Desktop with WSL 2, visit:
+
+https://docs.docker.com/go/wsl2/
+
+$ /mnt/c/Program\ Files/Docker/Docker/resources/bin/docker.exe version --format '{{.Server.Version}}'
+error during connect: Get "http://%2F%2F.%2Fpipe%2FdockerDesktopLinuxEngine/v1.47/version": open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.
+
+Docker Desktop was then started. Its existing images included:
+
+firdaussahran/netlab-mininet:1.0 61e473c21673 238MB
+
+The first container attempt left Docker returning HTTP 500 errors. After one Docker
+backend restart, an explicit shell entrypoint verified these tools:
+
+mn=/usr/bin/mn
+ovs-ofctl=/usr/bin/ovs-ofctl
+ovs-vsctl=/usr/bin/ovs-vsctl
+ovs-testcontroller=/usr/bin/ovs-testcontroller
+tcpdump=/usr/bin/tcpdump
+ovs-vswitchd (Open vSwitch) 3.3.9
+
+The image's service script reported that the openvswitch kernel module was absent.
+The lab uses the requested user-space datapath, so ovs-vswitchd was started explicitly
+and a netdev bridge responded to ovs-ofctl. The complete Steps 0-6 then ran in the
+disposable privileged course container. Their actual outputs are in the other files
+in this evidence directory.

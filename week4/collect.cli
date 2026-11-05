@@ -1,0 +1,83 @@
+# Week 4 interactive Mininet CLI checklist.
+# Paste these commands interactively; do not redirect this file into mn because
+# background host commands can consume later input. For automated evidence use
+# week4/run_lab.py as documented in README.md.
+# Lines beginning with sh printf create visible transcript section markers.
+
+sh printf '\n===== TOPOLOGY AND ADDRESSES =====\n'
+nodes
+net
+dump
+h1 ip -brief address show dev h1-eth0
+h2 ip -brief address show dev h2-eth0
+h3 ip -brief address show dev h3-eth0
+sh ovs-ofctl show s1
+
+sh printf '\n===== STEP 0: EMPTY SWITCH =====\n'
+sh ovs-ofctl show s1
+sh ovs-ofctl dump-flows s1
+h1 ping -c 2 h2
+
+sh printf '\n===== STEP 1: HUB =====\n'
+sh ovs-ofctl add-flow s1 actions=flood
+pingall
+sh ovs-ofctl dump-flows s1
+h3 timeout 4 tcpdump -ni h3-eth0 icmp > /tmp/h3-hub.txt 2>&1 &
+h1 ping -c 3 h2
+sh sleep 4; cat /tmp/h3-hub.txt
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 2: MANUAL FORWARDING =====\n'
+sh ovs-ofctl del-flows s1
+sh ovs-ofctl add-flow s1 arp,actions=flood
+sh ovs-ofctl add-flow s1 dl_dst=00:00:00:00:00:01,actions=output:1
+sh ovs-ofctl add-flow s1 dl_dst=00:00:00:00:00:02,actions=output:2
+sh ovs-ofctl add-flow s1 dl_dst=00:00:00:00:00:03,actions=output:3
+pingall
+sh ovs-ofctl dump-flows s1
+h3 timeout 4 tcpdump -ni h3-eth0 icmp > /tmp/h3-manual.txt 2>&1 &
+h1 ping -c 3 h2
+sh sleep 4; cat /tmp/h3-manual.txt
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 3A: DEFAULT-PRIORITY FIREWALL =====\n'
+sh ovs-ofctl add-flow s1 icmp,nw_src=10.45.0.1,nw_dst=10.45.0.3,actions=drop
+h1 ping -c 3 h3
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 3B: HIGH-PRIORITY FIREWALL =====\n'
+sh ovs-ofctl --strict del-flows s1 icmp,nw_src=10.45.0.1,nw_dst=10.45.0.3
+sh ovs-ofctl add-flow s1 priority=40000,icmp,nw_src=10.45.0.1,nw_dst=10.45.0.3,actions=drop
+h1 ping -c 3 h3
+h1 ping -c 3 h2
+h3 ping -c 3 h1
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 4: CONTROLLER =====\n'
+sh ovs-testcontroller ptcp:6653 > /tmp/ovs-testcontroller.txt 2>&1 &
+sh sleep 1
+sh ovs-ofctl del-flows s1
+sh ovs-vsctl set-controller s1 tcp:127.0.0.1:6653
+sh ovs-vsctl show
+h1 ping -c 3 h2
+h2 ping -c 3 h3
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 5: CONTROLLER FAILURE =====\n'
+sh pkill -f ovs-testcontroller
+sh ovs-vsctl list controller
+h1 ping -c 3 h2
+h1 ping -c 3 h3
+sh ovs-ofctl dump-flows s1
+sh printf '\nWaiting 70 seconds before retesting the learned conversation...\n'
+sh sleep 70
+h1 ping -c 3 h2
+sh ovs-ofctl dump-flows s1
+
+sh printf '\n===== STEP 6: STANDALONE FAIL MODE =====\n'
+sh ovs-vsctl set-fail-mode s1 standalone
+sh ovs-vsctl get-fail-mode s1
+sh sleep 15
+h1 ping -c 2 h3
+sh ovs-ofctl dump-flows s1
+exit
