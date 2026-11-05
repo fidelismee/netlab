@@ -1,0 +1,21 @@
+===== STEP 2: MANUAL FORWARDING =====
+mininet> pingall
+*** Results: 0% dropped (6/6 received)
+pingall returned 0% dropped
+$ ovs-ofctl dump-flows s1
+NXST_FLOW reply (xid=0x4):
+ cookie=0x0, duration=0.020s, table=0, n_packets=0, n_bytes=0, idle_age=0, arp actions=FLOOD
+ cookie=0x0, duration=0.017s, table=0, n_packets=3, n_bytes=294, idle_age=0, dl_dst=00:00:00:00:00:01 actions=output:1
+ cookie=0x0, duration=0.014s, table=0, n_packets=3, n_bytes=294, idle_age=0, dl_dst=00:00:00:00:00:02 actions=output:2
+ cookie=0x0, duration=0.012s, table=0, n_packets=2, n_bytes=196, idle_age=0, dl_dst=00:00:00:00:00:03 actions=output:3
+[exit status 0]
+h3$ timeout 4 tcpdump -ni h3-eth0 icmp
+h1$ ping -c 3 10.45.0.2
+3 packets transmitted, 3 received, 0% packet loss, time 2025ms
+--- h3 tcpdump output ---
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on h3-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
