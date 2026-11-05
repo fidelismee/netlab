@@ -1,0 +1,21 @@
+===== STEP 4: CONNECT THE CONTROLLER =====
+$ ovs-testcontroller ptcp:6653 &
+$ ovs-vsctl show
+f187aa19-6c2f-47bd-87e9-f613eaea5b82
+    Bridge s1
+        Controller "tcp:127.0.0.1:6653"
+        fail_mode: secure
+        datapath_type: netdev
+    ovs_version: "3.3.9"
+[exit status 0]
+h1$ ping -c 3 10.45.0.2
+3 packets transmitted, 3 received, 0% packet loss, time 2051ms
+h2$ ping -c 3 10.45.0.3
+3 packets transmitted, 3 received, 0% packet loss, time 2045ms
+$ ovs-ofctl dump-flows s1
+ cookie=0x0, duration=4.102s, table=0, n_packets=2, n_bytes=196, idle_timeout=60, idle_age=2, priority=1,icmp,in_port=1,vlan_tci=0x0000/0x1fff,dl_src=00:00:00:00:00:01,dl_dst=00:00:00:00:00:02,nw_src=10.45.0.1,nw_dst=10.45.0.2,nw_tos=0,icmp_type=8,icmp_code=0 actions=output:2
+ cookie=0x0, duration=1.023s, table=0, n_packets=2, n_bytes=196, idle_timeout=60, idle_age=0, priority=1,icmp,in_port=2,vlan_tci=0x0000/0x1fff,dl_src=00:00:00:00:00:02,dl_dst=00:00:00:00:00:03,nw_src=10.45.0.2,nw_dst=10.45.0.3,nw_tos=0,icmp_type=8,icmp_code=0 actions=output:3
+ cookie=0x0, duration=5.108s, table=0, n_packets=5, n_bytes=462, idle_age=2, priority=0 actions=CONTROLLER:128
+
+The successful pings and reactive priority-1 entries verify that the controller
+was connected. This ovs-vsctl show version did not print an is_connected line.

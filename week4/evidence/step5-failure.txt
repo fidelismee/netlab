@@ -1,0 +1,24 @@
+===== STEP 5: CONTROLLER FAILURE =====
+$ terminate ovs-testcontroller
+$ ovs-vsctl list controller
+is_connected        : true
+status              : {sec_since_connect="2", state=ACTIVE}
+target              : "tcp:127.0.0.1:6653"
+
+The record was stale one second after process termination and still displayed
+is_connected=true. Traffic tests below demonstrate that the controller was no
+longer answering; this result is reported rather than changed to the expected text.
+
+h1$ ping -c 3 10.45.0.2
+3 packets transmitted, 3 received, 0% packet loss, time 2029ms
+h1$ ping -c 3 10.45.0.3
+3 packets transmitted, 0 received, 100% packet loss, time 2045ms
+$ ovs-ofctl dump-flows s1
+ cookie=0x0, duration=19.190s, table=0, n_packets=5, n_bytes=490, idle_timeout=60, idle_age=12, priority=1,icmp,in_port=1,vlan_tci=0x0000/0x1fff,dl_src=00:00:00:00:00:01,dl_dst=00:00:00:00:00:02,nw_src=10.45.0.1,nw_dst=10.45.0.2,nw_tos=0,icmp_type=8,icmp_code=0 actions=output:2
+ cookie=0x0, duration=20.196s, table=0, n_packets=17, n_bytes=1134, idle_age=4, priority=0 actions=CONTROLLER:128
+
+Waiting 70 seconds for reactive forwarding flows to expire...
+h1$ ping -c 3 10.45.0.2
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2043ms
+$ ovs-ofctl dump-flows s1
+ cookie=0x0, duration=93.267s, table=0, n_packets=25, n_bytes=1610, idle_age=1, priority=0 actions=CONTROLLER:128
