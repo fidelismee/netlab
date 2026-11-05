@@ -1,4 +1,6 @@
 {
-  "completed_through": -1,
-  "results": {}
+  "completed_through": 0,
+  "results": {
+    "0": "The flow table was empty and h1 to h2 had 100% packet loss."
+  }
 }
