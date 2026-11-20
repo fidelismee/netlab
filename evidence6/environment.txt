@@ -1,0 +1,201 @@
++ date -u
+Fri Nov 20 08:08:44 UTC 2026
++ uname -r
+6.18.58.1-microsoft-standard-WSL2
++ python3 --version
+Python 3.12.3
++ python3 -c import mininet,yaml; print(mininet.__file__); print(yaml.__version__)
+/usr/lib/python3/dist-packages/mininet/__init__.py
+6.0.1
++ iperf3 --version
+iperf 3.16 (cJSON 1.7.15)
+Linux 865aaf9deca7 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64
+Optional features available: CPU affinity setting, IPv6 flow label, SCTP, TCP congestion algorithm setting, sendfile / zerocopy, socket pacing, authentication, bind to device, support IPv4 don't fragment, POSIX threads
++ tcpdump --version
+tcpdump version 4.99.4
+libpcap version 1.10.4 (with TPACKET_V3)
+OpenSSL 3.0.13 30 Jan 2024
++ sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-arptables
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-arptables = 1
++ printf exit\n
++ python3 build_overlay.py overlay.yaml
+*** Error setting resource limits. Mininet's performance may be affected.
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-arptables = 1 
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-iptables = 1 
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-ip6tables = 1 
+*** Configuring hosts
+cedar maple birch st1 st2 st3 st4 ar1 ar2 ar3 
+*** Starting controller
+
+*** Starting 1 switches
+s1 
+*** Starting CLI:
+*** Stopping 0 controllers
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+
+Hypervisors: cedar 10.45.0.1, maple 10.45.0.2, birch 10.45.0.3
+Tenant studio (VNI 145, MTU 1500): st1 10.45.50.10 on cedar, st2 10.45.50.11 on maple, st3 10.45.50.12 on birch, st4 10.45.50.13 on cedar
+Tenant archive (VNI 245, MTU 1500): ar1 10.45.50.10 on cedar, ar2 10.45.50.11 on maple, ar3 10.45.50.12 on birch
+
+mininet> 
+*** Stopping 10 links
+..........
+*** Stopping 1 switches
+s1 
+*** Stopping 10 hosts
+cedar maple birch st1 st2 st3 st4 ar1 ar2 ar3 
+*** Done
++ printf exit\n
++ python3 build_overlay.py blackhole.yaml --force
+*** Error setting resource limits. Mininet's performance may be affected.
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-arptables = 1 
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-iptables = 1 
+Warning: Linux bridge may not work with net.bridge.bridge-nf-call-ip6tables = 1 
+*** Configuring hosts
+cedar maple birch st1 st2 st3 st4 ar1 ar2 ar3 
+*** Starting controller
+
+*** Starting 1 switches
+s1 
+*** Starting CLI:
+*** Stopping 0 controllers
+
+*** Stopping 10 links
+.WARNING: --force: building despite check_mtu():
+   tenant studio: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes
+   tenant archive: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+
+Hypervisors: cedar 10.45.0.1, maple 10.45.0.2, birch 10.45.0.3
+Tenant studio (VNI 145, MTU 1500): st1 10.45.50.10 on cedar, st2 10.45.50.11 on maple, st3 10.45.50.12 on birch, st4 10.45.50.13 on cedar
+Tenant archive (VNI 245, MTU 1500): ar1 10.45.50.10 on cedar, ar2 10.45.50.11 on maple, ar3 10.45.50.12 on birch
+
+mininet> .........
+*** Stopping 1 switches
+s1 
+*** Stopping 10 hosts
+cedar maple birch st1 st2 st3 st4 ar1 ar2 ar3 
+*** Done
++ python3 -m unittest discover -s tests -p test_*.py
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.149s
+
+OK

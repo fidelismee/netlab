@@ -1,0 +1,104 @@
+Unable to find image 'alpine:3.21' locally
+3.21: Pulling from library/alpine
+871d48e9bf6b: Pulling fs layer
+871d48e9bf6b: Download complete
+Digest: sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab
+Status: Downloaded newer image for alpine:3.21
+BusyBox v1.37.0 (2025-11-23 13:10:04 UTC) multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel|neigh|rule [ARGS]
+
+OPTIONS := -f[amily] inet|inet6|link | -o[neline]
+
+ip addr add|del IFADDR dev IFACE | show|flush [dev IFACE] [to PREFIX]
+ip route list|flush|add|del|change|append|replace|test ROUTE
+ip link set IFACE [up|down] [arp on|off] [multicast on|off]
+	[promisc on|off] [mtu NUM] [name NAME] [qlen NUM] [address MAC]
+	[master IFACE | nomaster] [netns PID]
+ip tunnel add|change|del|show [NAME]
+	[mode ipip|gre|sit] [remote ADDR] [local ADDR] [ttl TTL]
+ip neigh show|flush [to PREFIX] [dev DEV] [nud STATE]
+ip rule [list] | add|del SELECTOR ACTION
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+7: eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP 
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+NAME="Alpine Linux"
+ID=alpine
+VERSION_ID=3.21.10
+PRETTY_NAME="Alpine Linux v3.21"
+HOME_URL="https://alpinelinux.org/"
+BUG_REPORT_URL="https://gitlab.alpinelinux.org/alpine/aports/-/issues"
+PID   USER     TIME  COMMAND
+    1 root      0:00 ps
+
+Verified Part 7 run: 2026-11-20T08:08:40.152243+00:00
+$ docker version
+Client:
+ Version:           27.4.0
+ API version:       1.47
+ Go version:        go1.22.10
+ Git commit:        bde2b89
+ Built:             Sat Dec  7 10:37:44 2024
+ OS/Arch:           linux/amd64
+ Context:           default
+
+Server: Docker Desktop 4.0.0 ()
+ Engine:
+  Version:          27.4.0
+  API version:      1.47 (minimum version 1.24)
+  Go version:       go1.22.10
+  Git commit:       92a8393
+  Built:            Sat Dec  7 10:38:57 2024
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          1.7.21
+  GitCommit:        472731909fa34bd7bc9c087e4c27943f9835f111
+ runc:
+  Version:          1.1.13
+  GitCommit:        v1.1.13-0-g58aa920
+ docker-init:
+  Version:          0.19.0
+  GitCommit:        de40ad0
+[exit status 0]
+$ docker run --rm --name netlab-week6-alpine alpine:3.21 sh -c 'set -ex; ip link; ip addr; cat /etc/os-release; sleep 1 & ps; wait'
++ ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+9: eth0@if10: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP 
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
++ ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+9: eth0@if10: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UP 
+    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
++ cat /etc/os-release
+NAME="Alpine Linux"
+ID=alpine
+VERSION_ID=3.21.10
+PRETTY_NAME="Alpine Linux v3.21"
+HOME_URL="https://alpinelinux.org/"
+BUG_REPORT_URL="https://gitlab.alpinelinux.org/alpine/aports/-/issues"
++ ps
++ sleep 1
+PID   USER     TIME  COMMAND
+    1 root      0:00 sh -c set -ex; ip link; ip addr; cat /etc/os-release; sleep 1 & ps; wait
+   10 root      0:00 sleep 1
+   11 root      0:00 ps
++ wait
+[exit status 0]
+$ docker ps -a --filter 'name=^/netlab-week6-alpine$' --format '{{.Names}}'
+[exit status 0]

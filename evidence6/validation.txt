@@ -1,0 +1,31 @@
+PASS Python syntax: build_overlay.py
+PASS Python syntax: make_page6.py
+PASS Python syntax: week6/run_assignment.py
+PASS Python syntax: week6/run_lab.py
+PASS Python syntax: week6/run_host.py
+PASS Python syntax: week6/validate.py
+PASS Python syntax: tests/test_overlay.py
+PASS YAML syntax: blackhole.yaml
+PASS YAML syntax: mtu_a.yaml
+PASS YAML syntax: mtu_b.yaml
+PASS YAML syntax: overlay.yaml
+PASS YAML syntax: page6.yaml
+PASS topology, addresses, MACs and invariant design: blackhole.yaml
+PASS topology, addresses, MACs and invariant design: mtu_a.yaml
+PASS topology, addresses, MACs and invariant design: mtu_b.yaml
+PASS topology, addresses, MACs and invariant design: overlay.yaml
+PASS blackhole is byte-identical to initial committed design; both fixes pass; final equals B
+PASS all five supplied assignment questions answered and correct repository URL
+PASS nonempty actual transcript: evidence6/check.txt (246 bytes)
+PASS nonempty actual transcript: evidence6/flood.txt (11684 bytes)
+PASS nonempty actual transcript: evidence6/isolation.txt (19780 bytes)
+PASS nonempty actual transcript: evidence6/blackhole.txt (53642 bytes)
+PASS nonempty actual transcript: evidence6/fixes.txt (34186 bytes)
+PASS nonempty actual transcript: evidence6/lab.txt (94641 bytes)
+PASS nonempty actual transcript: evidence6/docker.txt (4041 bytes)
+PASS nonempty actual transcript: evidence6/environment.txt (8777 bytes)
+PASS nonempty actual transcript: evidence6/debugging.txt (21821 bytes)
+PASS no previously tracked coursework outside Week 6 changed
+PASS runtime transcript: 18 directed pairs and two zero-packet cross-tenant captures
+PASS runtime transcript: forced MTU boundary 1422/1423
+PASS generated HTML contains design, commands, all five evidence sections and all five answers

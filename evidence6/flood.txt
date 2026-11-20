@@ -1,0 +1,236 @@
+Fresh network: overlay.yaml; force=False; 2026-11-20T08:07:15.357801+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+76:00:de:6e:cf:3f dev cedar-eth1 vlan 1 master br145 permanent
+76:00:de:6e:cf:3f dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 vlan 1 master br145 permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+22:5b:09:2f:13:0b dev cedar-eth3 vlan 1 master br245 permanent
+22:5b:09:2f:13:0b dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 vlan 1 master br145 permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+16:12:5a:f9:24:13 dev vxlan245 vlan 1 master br245 permanent
+16:12:5a:f9:24:13 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+66:33:19:76:43:c9 dev maple-eth1 vlan 1 master br145 permanent
+66:33:19:76:43:c9 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 vlan 1 master br245 permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+d6:46:1d:16:72:bb dev vxlan145 vlan 1 master br145 permanent
+d6:46:1d:16:72:bb dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+32:b7:fa:70:17:63 dev vxlan245 vlan 1 master br245 permanent
+32:b7:fa:70:17:63 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+96:02:e2:33:ed:5d dev birch-eth1 vlan 1 master br145 permanent
+96:02:e2:33:ed:5d dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+6a:40:d9:73:6d:ce dev birch-eth2 vlan 1 master br245 permanent
+6a:40:d9:73:6d:ce dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+22:e3:bc:6b:c1:18 dev vxlan145 vlan 1 master br145 permanent
+22:e3:bc:6b:c1:18 dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+a2:26:bf:07:23:2a dev vxlan245 vlan 1 master br245 permanent
+a2:26:bf:07:23:2a dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]
+birch$ timeout 8 tcpdump -U -l -n -e -vv -i birch-eth0 udp port 4789
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.223 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.141 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.141/0.182/0.223/0.041 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on birch-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+08:07:20.487409 9a:4b:a5:33:cf:d9 > f6:03:db:7b:62:f0, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 2320, offset 0, flags [none], proto UDP (17), length 78)
+    10.45.0.1.55580 > 10.45.0.3.4789: [bad udp cksum 0x14a9 -> 0xd298!] VXLAN, flags [I] (0x08), vni 145
+02:00:00:91:00:0a > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 10.45.50.11 tell 10.45.50.10, length 28
+
+1 packet captured
+1 packet received by filter
+0 packets dropped by kernel
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+02:00:00:91:00:0a dev cedar-eth1 master br145 
+76:00:de:6e:cf:3f dev cedar-eth1 vlan 1 master br145 permanent
+76:00:de:6e:cf:3f dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 vlan 1 master br145 permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+22:5b:09:2f:13:0b dev cedar-eth3 vlan 1 master br245 permanent
+22:5b:09:2f:13:0b dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0b dev vxlan145 master br145 
+b2:3d:4f:34:0f:f0 dev vxlan145 vlan 1 master br145 permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 master br145 permanent
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+16:12:5a:f9:24:13 dev vxlan245 vlan 1 master br245 permanent
+16:12:5a:f9:24:13 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+02:00:00:91:00:0b dev maple-eth1 master br145 
+66:33:19:76:43:c9 dev maple-eth1 vlan 1 master br145 permanent
+66:33:19:76:43:c9 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 vlan 1 master br245 permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0a dev vxlan145 master br145 
+d6:46:1d:16:72:bb dev vxlan145 vlan 1 master br145 permanent
+d6:46:1d:16:72:bb dev vxlan145 master br145 permanent
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+32:b7:fa:70:17:63 dev vxlan245 vlan 1 master br245 permanent
+32:b7:fa:70:17:63 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+96:02:e2:33:ed:5d dev birch-eth1 vlan 1 master br145 permanent
+96:02:e2:33:ed:5d dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+6a:40:d9:73:6d:ce dev birch-eth2 vlan 1 master br245 permanent
+6a:40:d9:73:6d:ce dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0a dev vxlan145 master br145 
+22:e3:bc:6b:c1:18 dev vxlan145 vlan 1 master br145 permanent
+22:e3:bc:6b:c1:18 dev vxlan145 master br145 permanent
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+a2:26:bf:07:23:2a dev vxlan245 vlan 1 master br245 permanent
+a2:26:bf:07:23:2a dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]
+Repeat after learning: third VTEP should receive no unicast conversation.
+birch$ timeout 8 tcpdump -U -l -n -e -vv -i birch-eth0 udp port 4789
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.090 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.121 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.090/0.105/0.121/0.015 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on birch-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel

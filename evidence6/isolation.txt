@@ -1,0 +1,417 @@
+Fresh network: overlay.yaml; force=False; 2026-11-20T08:07:21.781949+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+ar2 has the same IP as st2; capture on ar2 while studio communicates.
+ar2$ timeout 8 tcpdump -U -l -n -e -vv -i ar2-eth0 arp or icmp
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.217 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.165 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.165/0.191/0.217/0.026 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on ar2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+st2$ timeout 8 tcpdump -U -l -n -e -vv -i st2-eth0 arp or icmp
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.172 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.103 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.103/0.137/0.172/0.034 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on st2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.142 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.085 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 107ms
+rtt min/avg/max/mdev = 0.085/0.113/0.142/0.028 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.148 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.091 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.091/0.119/0.148/0.028 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.104 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.079 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.079/0.091/0.104/0.012 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.075 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.156 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.075/0.115/0.156/0.040 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.165 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.176 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.165/0.170/0.176/0.005 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.130 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.116 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.116/0.123/0.130/0.007 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.162 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.056/0.109/0.162/0.053 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.075 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.196 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.075/0.135/0.196/0.060 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.129 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.180 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.129/0.154/0.180/0.025 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.028 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.107 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.028/0.067/0.107/0.039 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.067 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.170 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.067/0.118/0.170/0.051 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.067 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.176 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 100ms
+rtt min/avg/max/mdev = 0.067/0.121/0.176/0.054 ms
+[exit status 0]
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.070 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.115 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.070/0.092/0.115/0.022 ms
+[exit status 0]
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.133 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.127 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.127/0.130/0.133/0.003 ms
+[exit status 0]
+ar2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.057 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.138 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.057/0.097/0.138/0.040 ms
+[exit status 0]
+ar2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.134 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.159 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.134/0.146/0.159/0.012 ms
+[exit status 0]
+ar3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.173 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.056/0.114/0.173/0.058 ms
+[exit status 0]
+ar3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.212 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.056/0.134/0.212/0.078 ms
+[exit status 0]
+PASS: 18 directed within-tenant VM pairs
+st1$ ip -br address; ip link show st1-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st1-eth0@if3     UP             10.45.50.10/24 
+2: st1-eth0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev st1-eth0 lladdr 02:00:00:91:00:0b REACHABLE 
+10.45.50.12 dev st1-eth0 lladdr 02:00:00:91:00:0c REACHABLE 
+10.45.50.13 dev st1-eth0 lladdr 02:00:00:91:00:0d REACHABLE
+[exit status 0]
+st2$ ip -br address; ip link show st2-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st2-eth0@if3     UP             10.45.50.11/24 
+2: st2-eth0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.10 dev st2-eth0 lladdr 02:00:00:91:00:0a DELAY 
+10.45.50.13 dev st2-eth0 lladdr 02:00:00:91:00:0d REACHABLE 
+10.45.50.12 dev st2-eth0 lladdr 02:00:00:91:00:0c REACHABLE
+[exit status 0]
+st3$ ip -br address; ip link show st3-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st3-eth0@if3     UP             10.45.50.12/24 
+2: st3-eth0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0c brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.13 dev st3-eth0 lladdr 02:00:00:91:00:0d REACHABLE 
+10.45.50.11 dev st3-eth0 lladdr 02:00:00:91:00:0b DELAY 
+10.45.50.10 dev st3-eth0 lladdr 02:00:00:91:00:0a DELAY
+[exit status 0]
+st4$ ip -br address; ip link show st4-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st4-eth0@if4     UP             10.45.50.13/24 
+2: st4-eth0@if4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.12 dev st4-eth0 lladdr 02:00:00:91:00:0c DELAY 
+10.45.50.10 dev st4-eth0 lladdr 02:00:00:91:00:0a DELAY 
+10.45.50.11 dev st4-eth0 lladdr 02:00:00:91:00:0b DELAY
+[exit status 0]
+ar1$ ip -br address; ip link show ar1-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar1-eth0@if5     UP             10.45.50.10/24 
+2: ar1-eth0@if5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev ar1-eth0 lladdr 02:00:00:f5:00:0b REACHABLE 
+10.45.50.12 dev ar1-eth0 lladdr 02:00:00:f5:00:0c REACHABLE
+[exit status 0]
+ar2$ ip -br address; ip link show ar2-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar2-eth0@if4     UP             10.45.50.11/24 
+2: ar2-eth0@if4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.12 dev ar2-eth0 lladdr 02:00:00:f5:00:0c REACHABLE 
+10.45.50.10 dev ar2-eth0 lladdr 02:00:00:f5:00:0a DELAY
+[exit status 0]
+ar3$ ip -br address; ip link show ar3-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar3-eth0@if4     UP             10.45.50.12/24 
+2: ar3-eth0@if4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0c brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev ar3-eth0 lladdr 02:00:00:f5:00:0b DELAY 
+10.45.50.10 dev ar3-eth0 lladdr 02:00:00:f5:00:0a DELAY
+[exit status 0]
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+02:00:00:91:00:0a dev cedar-eth1 master br145 
+3e:eb:23:c6:8a:ad dev cedar-eth1 vlan 1 master br145 permanent
+3e:eb:23:c6:8a:ad dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+02:00:00:91:00:0d dev cedar-eth2 master br145 
+42:98:c5:d8:cd:2f dev cedar-eth2 vlan 1 master br145 permanent
+42:98:c5:d8:cd:2f dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+02:00:00:f5:00:0a dev cedar-eth3 master br245 
+b2:97:98:c7:a1:f7 dev cedar-eth3 vlan 1 master br245 permanent
+b2:97:98:c7:a1:f7 dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0c dev vxlan145 master br145 
+02:00:00:91:00:0b dev vxlan145 master br145 
+06:88:3e:d2:1b:99 dev vxlan145 vlan 1 master br145 permanent
+06:88:3e:d2:1b:99 dev vxlan145 master br145 permanent
+02:00:00:91:00:0c dev vxlan145 dst 10.45.0.3 self 
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0c dev vxlan245 master br245 
+02:00:00:f5:00:0b dev vxlan245 master br245 
+ae:3b:bc:cf:10:5b dev vxlan245 vlan 1 master br245 permanent
+ae:3b:bc:cf:10:5b dev vxlan245 master br245 permanent
+02:00:00:f5:00:0c dev vxlan245 dst 10.45.0.3 self 
+02:00:00:f5:00:0b dev vxlan245 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+02:00:00:91:00:0b dev maple-eth1 master br145 
+12:b6:9f:94:89:30 dev maple-eth1 vlan 1 master br145 permanent
+12:b6:9f:94:89:30 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+02:00:00:f5:00:0b dev maple-eth2 master br245 
+72:79:1f:5b:06:14 dev maple-eth2 vlan 1 master br245 permanent
+72:79:1f:5b:06:14 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0d dev vxlan145 master br145 
+02:00:00:91:00:0c dev vxlan145 master br145 
+02:00:00:91:00:0a dev vxlan145 master br145 
+22:f9:6e:7c:ce:ce dev vxlan145 vlan 1 master br145 permanent
+22:f9:6e:7c:ce:ce dev vxlan145 master br145 permanent
+02:00:00:91:00:0d dev vxlan145 dst 10.45.0.1 self 
+02:00:00:91:00:0c dev vxlan145 dst 10.45.0.3 self 
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0c dev vxlan245 master br245 
+02:00:00:f5:00:0a dev vxlan245 master br245 
+1a:5a:e2:14:19:a1 dev vxlan245 vlan 1 master br245 permanent
+1a:5a:e2:14:19:a1 dev vxlan245 master br245 permanent
+02:00:00:f5:00:0c dev vxlan245 dst 10.45.0.3 self 
+02:00:00:f5:00:0a dev vxlan245 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+02:00:00:91:00:0c dev birch-eth1 master br145 
+a2:51:38:77:b3:29 dev birch-eth1 vlan 1 master br145 permanent
+a2:51:38:77:b3:29 dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+02:00:00:f5:00:0c dev birch-eth2 master br245 
+e6:d5:82:c6:f5:1f dev birch-eth2 vlan 1 master br245 permanent
+e6:d5:82:c6:f5:1f dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0d dev vxlan145 master br145 
+02:00:00:91:00:0b dev vxlan145 master br145 
+02:00:00:91:00:0a dev vxlan145 master br145 
+ea:92:5a:e9:7d:92 dev vxlan145 vlan 1 master br145 permanent
+ea:92:5a:e9:7d:92 dev vxlan145 master br145 permanent
+02:00:00:91:00:0d dev vxlan145 dst 10.45.0.1 self 
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0b dev vxlan245 master br245 
+02:00:00:f5:00:0a dev vxlan245 master br245 
+92:f4:86:6f:3a:33 dev vxlan245 vlan 1 master br245 permanent
+92:f4:86:6f:3a:33 dev vxlan245 master br245 permanent
+02:00:00:f5:00:0b dev vxlan245 dst 10.45.0.2 self 
+02:00:00:f5:00:0a dev vxlan245 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]

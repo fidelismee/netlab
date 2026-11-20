@@ -1,0 +1,956 @@
+Fresh network: mtu_a.yaml; force=False; 2026-11-20T08:07:45.099360+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1450 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+cedar-eth0@if14  UP             ba:34:a3:09:03:11 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth1@if2   UP             fa:69:ae:79:ce:40 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth2@if2   UP             8a:0e:f8:b5:69:45 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth3@if2   UP             96:ef:8a:f3:02:6d <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             42:60:ed:2f:3a:66 <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        42:60:ed:2f:3a:66 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             6a:58:60:dc:b9:0f <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        6a:58:60:dc:b9:0f <BROADCAST,MULTICAST,UP,LOWER_UP> 
+7: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 42:60:ed:2f:3a:66 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.1 dev cedar-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.42:60:ed:2f:3a:66 designated_root 8000.42:60:ed:2f:3a:66 hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.74 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+maple$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+maple-eth0@if15  UP             5a:46:77:c8:f8:1f <BROADCAST,MULTICAST,UP,LOWER_UP> 
+maple-eth1@if2   UP             2a:f7:f6:14:68:fa <BROADCAST,MULTICAST,UP,LOWER_UP> 
+maple-eth2@if2   UP             da:2c:36:41:ea:db <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             2a:f7:f6:14:68:fa <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        2e:bb:cc:24:95:e8 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             1e:60:e7:c7:30:48 <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        1e:60:e7:c7:30:48 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+6: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 2e:bb:cc:24:95:e8 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.2 dev maple-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.2a:f7:f6:14:68:fa designated_root 8000.2a:f7:f6:14:68:fa hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.84 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+birch$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+birch-eth0@if16  UP             ca:e9:30:6e:02:e1 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+birch-eth1@if2   UP             7e:a3:29:19:b5:fd <BROADCAST,MULTICAST,UP,LOWER_UP> 
+birch-eth2@if2   UP             8a:e7:12:f6:6e:5d <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             36:3f:93:f3:5e:9c <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        36:3f:93:f3:5e:9c <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             16:a3:a5:ea:69:d0 <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        16:a3:a5:ea:69:d0 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+6: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 36:3f:93:f3:5e:9c brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.3 dev birch-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.36:3f:93:f3:5e:9c designated_root 8000.36:3f:93:f3:5e:9c hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.91 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1422(1450) bytes of data.
+1430 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.284 ms
+1430 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.111 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.111/0.197/0.284/0.086 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1423 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1423(1451) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 104ms
+
+ping: local error: message too long, mtu=1450
+ping: local error: message too long, mtu=1450
+[exit status 1]
+st2$ iperf3 -s -1 -J
+st1$ timeout 15 iperf3 -c 10.45.50.11 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.50.10",
+				"local_port":	42842,
+				"remote_host":	"10.45.50.11",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:07:50 GMT",
+			"timesecs":	1795162070
+		},
+		"connecting_to":	{
+			"host":	"10.45.50.11",
+			"port":	5201
+		},
+		"cookie":	"ph65ehgj6s5d4xbsakpvtkk3unudqliwjbcm",
+		"tcp_mss_default":	1398,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001082,
+					"seconds":	1.0010819435119629,
+					"bytes":	173539328,
+					"bits_per_second":	1386814169.4071119,
+					"retransmits":	3,
+					"snd_cwnd":	265620,
+					"snd_wnd":	12561408,
+					"rtt":	794,
+					"rttvar":	276,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001082,
+				"seconds":	1.0010819435119629,
+				"bytes":	173539328,
+				"bits_per_second":	1386814169.4071119,
+				"retransmits":	3,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001082,
+					"end":	2.001069,
+					"seconds":	0.999987006187439,
+					"bytes":	173408256,
+					"bits_per_second":	1387284074.1092279,
+					"retransmits":	128,
+					"snd_cwnd":	267018,
+					"snd_wnd":	12561408,
+					"rtt":	533,
+					"rttvar":	181,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.001082,
+				"end":	2.001069,
+				"seconds":	0.999987006187439,
+				"bytes":	173408256,
+				"bits_per_second":	1387284074.1092279,
+				"retransmits":	128,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001069,
+					"end":	3.001773,
+					"seconds":	1.0007040500640869,
+					"bytes":	166985728,
+					"bits_per_second":	1334945955.2146785,
+					"retransmits":	140,
+					"snd_cwnd":	271212,
+					"snd_wnd":	12561408,
+					"rtt":	573,
+					"rttvar":	236,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.001069,
+				"end":	3.001773,
+				"seconds":	1.0007040500640869,
+				"bytes":	166985728,
+				"bits_per_second":	1334945955.2146785,
+				"retransmits":	140,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001773,
+					"seconds":	3.001773,
+					"bytes":	515375104,
+					"bits_per_second":	1373521859.2478511,
+					"retransmits":	271,
+					"max_snd_cwnd":	271212,
+					"max_snd_wnd":	12561408,
+					"max_rtt":	794,
+					"min_rtt":	533,
+					"mean_rtt":	633,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002192,
+					"seconds":	3.001773,
+					"bytes":	515506176,
+					"bits_per_second":	1373679434.2267251,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.001773,
+			"seconds":	3.001773,
+			"bytes":	515375104,
+			"bits_per_second":	1373521859.2478511,
+			"retransmits":	271,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002192,
+			"seconds":	3.002192,
+			"bytes":	515506176,
+			"bits_per_second":	1373679434.2267251,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	93.2605602433745,
+			"host_user":	0.061689226124804659,
+			"host_system":	93.198871017249672,
+			"remote_total":	15.081036955969305,
+			"remote_user":	0.033471894765695072,
+			"remote_system":	15.04756506120361
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1373.679 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.50.11",
+				"local_port":	5201,
+				"remote_host":	"10.45.50.10",
+				"remote_port":	42842
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:07:50 GMT",
+			"timesecs":	1795162070
+		},
+		"accepted_connection":	{
+			"host":	"10.45.50.10",
+			"port":	42826
+		},
+		"cookie":	"ph65ehgj6s5d4xbsakpvtkk3unudqliwjbcm",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001066,
+					"seconds":	1.0010659694671631,
+					"bytes":	173408256,
+					"bits_per_second":	1385788839.4092543,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001066,
+				"seconds":	1.0010659694671631,
+				"bytes":	173408256,
+				"bits_per_second":	1385788839.4092543,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001066,
+					"end":	2.001082,
+					"seconds":	1.0000159740448,
+					"bytes":	173801472,
+					"bits_per_second":	1390389565.8547859,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001066,
+				"end":	2.001082,
+				"seconds":	1.0000159740448,
+				"bytes":	173801472,
+				"bits_per_second":	1390389565.8547859,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001082,
+					"end":	3.001065,
+					"seconds":	0.999983012676239,
+					"bytes":	168034304,
+					"bits_per_second":	1344297268.0129228,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001082,
+				"end":	3.001065,
+				"seconds":	0.999983012676239,
+				"bytes":	168034304,
+				"bits_per_second":	1344297268.0129228,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	3.001065,
+					"end":	3.002192,
+					"seconds":	0.0011269999668002129,
+					"bytes":	131072,
+					"bits_per_second":	930413514.542618,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	3.001065,
+				"end":	3.002192,
+				"seconds":	0.0011269999668002129,
+				"bytes":	131072,
+				"bits_per_second":	930413514.542618,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002192,
+					"seconds":	3.002192,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002192,
+					"seconds":	3.002192,
+					"bytes":	515506176,
+					"bits_per_second":	1373679434.2267251,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.002192,
+			"seconds":	3.002192,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002192,
+			"seconds":	3.002192,
+			"bytes":	515506176,
+			"bits_per_second":	1373679434.2267251,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	15.081036955969305,
+			"host_user":	0.033471894765695072,
+			"host_system":	15.04756506120361,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+Fresh network: mtu_b.yaml; force=False; 2026-11-20T08:07:54.323925+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+cedar-eth0@if18  UP             0e:57:cc:5e:82:53 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth1@if2   UP             1a:5a:36:3f:b0:58 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth2@if2   UP             a2:0e:80:7a:68:74 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+cedar-eth3@if2   UP             26:bb:0d:44:8c:28 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             1a:5a:36:3f:b0:58 <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        76:d3:bd:27:32:46 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             26:bb:0d:44:8c:28 <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        ce:eb:89:48:9f:41 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+7: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 76:d3:bd:27:32:46 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.1 dev cedar-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.1a:5a:36:3f:b0:58 designated_root 8000.1a:5a:36:3f:b0:58 hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.72 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+maple$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+maple-eth0@if19  UP             82:c6:f0:0e:c8:31 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+maple-eth1@if2   UP             56:65:33:57:a7:6e <BROADCAST,MULTICAST,UP,LOWER_UP> 
+maple-eth2@if2   UP             4e:0d:c1:2c:80:e7 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             46:f3:4c:50:d4:5c <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        46:f3:4c:50:d4:5c <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             4e:0d:c1:2c:80:e7 <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        8a:db:5c:c6:89:6d <BROADCAST,MULTICAST,UP,LOWER_UP> 
+6: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 46:f3:4c:50:d4:5c brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.2 dev maple-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.46:f3:4c:50:d4:5c designated_root 8000.46:f3:4c:50:d4:5c hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.83 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+birch$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+birch-eth0@if20  UP             3e:c9:15:85:fd:05 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+birch-eth1@if2   UP             42:a9:c8:fb:2f:9f <BROADCAST,MULTICAST,UP,LOWER_UP> 
+birch-eth2@if2   UP             5a:a0:06:86:bb:86 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br145            UP             42:a9:c8:fb:2f:9f <BROADCAST,UP,LOWER_UP> 
+vxlan145         UNKNOWN        9a:a0:3a:da:16:ea <BROADCAST,MULTICAST,UP,LOWER_UP> 
+br245            UP             5a:a0:06:86:bb:86 <BROADCAST,UP,LOWER_UP> 
+vxlan245         UNKNOWN        86:20:38:92:5c:2e <BROADCAST,MULTICAST,UP,LOWER_UP> 
+6: vxlan145: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 9a:a0:3a:da:16:ea brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.3 dev birch-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.42:a9:c8:fb:2f:9f designated_root 8000.42:a9:c8:fb:2f:9f hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.90 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1472 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1472(1500) bytes of data.
+1480 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.229 ms
+1480 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.135 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.135/0.182/0.229/0.047 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1473 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1473(1501) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 104ms
+
+ping: local error: message too long, mtu=1500
+ping: local error: message too long, mtu=1500
+[exit status 1]
+st2$ iperf3 -s -1 -J
+st1$ timeout 15 iperf3 -c 10.45.50.11 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.50.10",
+				"local_port":	46606,
+				"remote_host":	"10.45.50.11",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:07:59 GMT",
+			"timesecs":	1795162079
+		},
+		"connecting_to":	{
+			"host":	"10.45.50.11",
+			"port":	5201
+		},
+		"cookie":	"u3boy2uu7nuhdiux6tp4n5fdagxfvk3putlg",
+		"tcp_mss_default":	1448,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001066,
+					"seconds":	1.0010659694671631,
+					"bytes":	182583296,
+					"bits_per_second":	1459111000.2245588,
+					"retransmits":	2,
+					"snd_cwnd":	220096,
+					"snd_wnd":	3825664,
+					"rtt":	466,
+					"rttvar":	140,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001066,
+				"seconds":	1.0010659694671631,
+				"bytes":	182583296,
+				"bits_per_second":	1459111000.2245588,
+				"retransmits":	2,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001066,
+					"end":	2.001036,
+					"seconds":	0.999970018863678,
+					"bytes":	174587904,
+					"bits_per_second":	1396745108.00549,
+					"retransmits":	704,
+					"snd_cwnd":	214304,
+					"snd_wnd":	24100864,
+					"rtt":	561,
+					"rttvar":	121,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.001066,
+				"end":	2.001036,
+				"seconds":	0.999970018863678,
+				"bytes":	174587904,
+				"bits_per_second":	1396745108.00549,
+				"retransmits":	704,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001036,
+					"end":	3.002671,
+					"seconds":	1.001634955406189,
+					"bytes":	179437568,
+					"bits_per_second":	1433157395.5681961,
+					"retransmits":	0,
+					"snd_cwnd":	214304,
+					"snd_wnd":	24123392,
+					"rtt":	757,
+					"rttvar":	297,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.001036,
+				"end":	3.002671,
+				"seconds":	1.001634955406189,
+				"bytes":	179437568,
+				"bits_per_second":	1433157395.5681961,
+				"retransmits":	0,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002671,
+					"seconds":	3.002671,
+					"bytes":	541589504,
+					"bits_per_second":	1442953967.3177648,
+					"retransmits":	706,
+					"max_snd_cwnd":	220096,
+					"max_snd_wnd":	24123392,
+					"max_rtt":	757,
+					"min_rtt":	466,
+					"mean_rtt":	594,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002866,
+					"seconds":	3.002671,
+					"bytes":	541720576,
+					"bits_per_second":	1443209456.5658274,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.002671,
+			"seconds":	3.002671,
+			"bytes":	541589504,
+			"bits_per_second":	1442953967.3177648,
+			"retransmits":	706,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002866,
+			"seconds":	3.002866,
+			"bytes":	541720576,
+			"bits_per_second":	1443209456.5658274,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	89.9659215833633,
+			"host_user":	0,
+			"host_system":	89.9659215833633,
+			"remote_total":	16.322196739643342,
+			"remote_user":	0.24789180408555264,
+			"remote_system":	16.074304935557787
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1443.209 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.50.11",
+				"local_port":	5201,
+				"remote_host":	"10.45.50.10",
+				"remote_port":	46606
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:07:59 GMT",
+			"timesecs":	1795162079
+		},
+		"accepted_connection":	{
+			"host":	"10.45.50.10",
+			"port":	46594
+		},
+		"cookie":	"u3boy2uu7nuhdiux6tp4n5fdagxfvk3putlg",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001134,
+					"seconds":	1.0011340379714966,
+					"bytes":	182583296,
+					"bits_per_second":	1459011793.2256207,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001134,
+				"seconds":	1.0011340379714966,
+				"bytes":	182583296,
+				"bits_per_second":	1459011793.2256207,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001134,
+					"end":	2.001044,
+					"seconds":	0.999909996986389,
+					"bytes":	176291840,
+					"bits_per_second":	1410461665.8005047,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001134,
+				"end":	2.001044,
+				"seconds":	0.999909996986389,
+				"bytes":	176291840,
+				"bits_per_second":	1410461665.8005047,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001044,
+					"end":	3.001055,
+					"seconds":	1.0000109672546387,
+					"bytes":	182583296,
+					"bits_per_second":	1460650348.675688,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001044,
+				"end":	3.001055,
+				"seconds":	1.0000109672546387,
+				"bytes":	182583296,
+				"bits_per_second":	1460650348.675688,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	3.001055,
+					"end":	3.002866,
+					"seconds":	0.0018110000528395176,
+					"bytes":	262144,
+					"bits_per_second":	1158007696.7484438,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	3.001055,
+				"end":	3.002866,
+				"seconds":	0.0018110000528395176,
+				"bytes":	262144,
+				"bits_per_second":	1158007696.7484438,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002866,
+					"seconds":	3.002866,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002866,
+					"seconds":	3.002866,
+					"bytes":	541720576,
+					"bits_per_second":	1443209456.5658274,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.002866,
+			"seconds":	3.002866,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002866,
+			"seconds":	3.002866,
+			"bytes":	541720576,
+			"bits_per_second":	1443209456.5658274,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	16.322196739643342,
+			"host_user":	0.24789180408555264,
+			"host_system":	16.074304935557787,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}

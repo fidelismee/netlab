@@ -1,0 +1,2555 @@
+
+PART 2: manual namespaces and bridge
+$ ip netns add red
+
+[exit status 0]
+$ ip netns add blue
+
+[exit status 0]
+$ ip link add br0 type bridge
+
+[exit status 0]
+$ ip link set br0 up
+
+[exit status 0]
+$ ip link add redlink type veth peer name redeth
+
+[exit status 0]
+$ ip link add bluelink type veth peer name blueeth
+
+[exit status 0]
+$ ip link set redeth netns red
+
+[exit status 0]
+$ ip link set blueeth netns blue
+
+[exit status 0]
+$ ip link set redlink master br0
+
+[exit status 0]
+$ ip link set bluelink master br0
+
+[exit status 0]
+$ ip link set redlink up
+
+[exit status 0]
+$ ip link set bluelink up
+
+[exit status 0]
+$ ip -n red link set lo up
+
+[exit status 0]
+$ ip -n blue link set lo up
+
+[exit status 0]
+$ ip -n red addr add 10.45.9.1/24 dev redeth
+
+[exit status 0]
+$ ip -n blue addr add 10.45.9.2/24 dev blueeth
+
+[exit status 0]
+$ ip -n red link set redeth up
+
+[exit status 0]
+$ ip -n blue link set blueeth up
+
+[exit status 0]
+$ ip netns exec red ping -n -c 3 -W 1 10.45.9.2
+PING 10.45.9.2 (10.45.9.2) 56(84) bytes of data.
+64 bytes from 10.45.9.2: icmp_seq=1 ttl=64 time=0.078 ms
+64 bytes from 10.45.9.2: icmp_seq=2 ttl=64 time=0.091 ms
+64 bytes from 10.45.9.2: icmp_seq=3 ttl=64 time=0.084 ms
+
+--- 10.45.9.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2030ms
+rtt min/avg/max/mdev = 0.078/0.084/0.091/0.005 ms
+[exit status 0]
+$ ip -n red -br link
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+redeth@if4       UP             2a:f8:4c:74:d1:0f <BROADCAST,MULTICAST,UP,LOWER_UP>
+[exit status 0]
+$ ip -n blue -br link
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+blueeth@if6      UP             22:1f:c2:23:9f:1c <BROADCAST,MULTICAST,UP,LOWER_UP>
+[exit status 0]
+$ bridge fdb show br br0
+33:33:00:00:00:01 dev br0 self permanent
+01:00:5e:00:00:6a dev br0 self permanent
+33:33:00:00:00:6a dev br0 self permanent
+01:00:5e:00:00:01 dev br0 self permanent
+33:33:ff:a2:1a:d2 dev br0 self permanent
+2a:f8:4c:74:d1:0f dev redlink master br0 
+e6:30:fd:38:1d:df dev redlink vlan 1 master br0 permanent
+e6:30:fd:38:1d:df dev redlink master br0 permanent
+33:33:00:00:00:01 dev redlink self permanent
+01:00:5e:00:00:01 dev redlink self permanent
+33:33:ff:38:1d:df dev redlink self permanent
+22:1f:c2:23:9f:1c dev bluelink master br0 
+46:cb:95:d3:ef:b4 dev bluelink vlan 1 master br0 permanent
+46:cb:95:d3:ef:b4 dev bluelink master br0 permanent
+33:33:00:00:00:01 dev bluelink self permanent
+01:00:5e:00:00:01 dev bluelink self permanent
+33:33:ff:d3:ef:b4 dev bluelink self permanent
+[exit status 0]
+$ ip netns del red
+
+[exit status 0]
+$ ip netns del blue
+
+[exit status 0]
+$ ip link del br0
+
+[exit status 0]
+
+PART 1: Mininet namespaces and veth links
+$ lsns -t net
+        NS TYPE NPROCS PID USER    NETNSID NSFS COMMAND
+4026532507 net       4   1 root unassigned      python3 week6/run_lab.py
+4026532609 net       1  60 root          0      ├─bash --norc --noediting -is mininet:h1
+4026532710 net       1  62 root          1      └─bash --norc --noediting -is mininet:h2
+[exit status 0]
+h1 shell PID=60
+$ readlink /proc/60/ns/net; ps -p 60 -o pid,ppid,comm,args
+net:[4026532609]
+    PID    PPID COMMAND         COMMAND
+     60       1 bash            bash --norc --noediting -is mininet:h1
+[exit status 0]
+h1$ ip -br link; ip -br address; ip -o link
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+h1-eth0@if7      UP             86:31:fd:4d:69:55 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+h1-eth0@if7      UP             10.45.0.1/24 fe80::8431:fdff:fe4d:6955/64 
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: h1-eth0@if7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 86:31:fd:4d:69:55 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+[exit status 0]
+h1$ python3 -c 'import array,fcntl,socket,struct,sys;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);[fcntl.ioctl(s,0x8946,struct.pack('"'"'16sP'"'"',n.encode(),b.buffer_info()[0])) for n in sys.argv[1:] for c in (0x1f,0x24) for b in [array.array('"'"'B'"'"',struct.pack('"'"'II'"'"',c,0))]]' h1-eth0
+
+[exit status 0]
+h2 shell PID=62
+$ readlink /proc/62/ns/net; ps -p 62 -o pid,ppid,comm,args
+net:[4026532710]
+    PID    PPID COMMAND         COMMAND
+     62       1 bash            bash --norc --noediting -is mininet:h2
+[exit status 0]
+h2$ ip -br link; ip -br address; ip -o link
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+h2-eth0@if8      UP             6a:6d:ee:ee:ea:5b <BROADCAST,MULTICAST,UP,LOWER_UP> 
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+h2-eth0@if8      UP             10.45.0.2/24 fe80::686d:eeff:feee:ea5b/64 
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: h2-eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 6a:6d:ee:ee:ea:5b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+[exit status 0]
+h2$ python3 -c 'import array,fcntl,socket,struct,sys;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);[fcntl.ioctl(s,0x8946,struct.pack('"'"'16sP'"'"',n.encode(),b.buffer_info()[0])) for n in sys.argv[1:] for c in (0x1f,0x24) for b in [array.array('"'"'B'"'"',struct.pack('"'"'II'"'"',c,0))]]' h2-eth0
+
+[exit status 0]
+$ ip -o link; bridge link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+7: s1-eth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master s1 state UP mode DEFAULT group default qlen 1000\    link/ether ba:b1:a6:c2:46:4c brd ff:ff:ff:ff:ff:ff link-netnsid 0
+8: s1-eth2@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master s1 state UP mode DEFAULT group default qlen 1000\    link/ether 8a:3b:7b:77:8a:32 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+9: s1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/ether 8a:3b:7b:77:8a:32 brd ff:ff:ff:ff:ff:ff
+7: s1-eth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 master s1 state forwarding priority 32 cost 2 
+8: s1-eth2@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 master s1 state forwarding priority 32 cost 2
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.0.2
+PING 10.45.0.2 (10.45.0.2) 56(84) bytes of data.
+64 bytes from 10.45.0.2: icmp_seq=1 ttl=64 time=0.107 ms
+64 bytes from 10.45.0.2: icmp_seq=2 ttl=64 time=0.099 ms
+
+--- 10.45.0.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 107ms
+rtt min/avg/max/mdev = 0.099/0.103/0.107/0.004 ms
+[exit status 0]
+
+PART 3: IPv4 VXLAN
+h1$ ip link add vx100 type vxlan id 100 local 10.45.0.1 remote 10.45.0.2 dstport 4789 dev h1-eth0
+
+[exit status 0]
+h1$ ip addr add 10.45.100.1/24 dev vx100; ip link set vx100 up; ip -d link show vx100
+3: vx100: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 8e:42:9f:7a:44:95 brd ff:ff:ff:ff:ff:ff promiscuity 0  allmulti 0 minmtu 68 maxmtu 65535 
+    vxlan id 100 remote 10.45.0.2 fan-map local 10.45.0.1 dev h1-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+h1$ python3 -c 'import array,fcntl,socket,struct,sys;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);[fcntl.ioctl(s,0x8946,struct.pack('"'"'16sP'"'"',n.encode(),b.buffer_info()[0])) for n in sys.argv[1:] for c in (0x1f,0x24) for b in [array.array('"'"'B'"'"',struct.pack('"'"'II'"'"',c,0))]]' vx100
+
+[exit status 0]
+h2$ ip link add vx100 type vxlan id 100 local 10.45.0.2 remote 10.45.0.1 dstport 4789 dev h2-eth0
+
+[exit status 0]
+h2$ ip addr add 10.45.100.2/24 dev vx100; ip link set vx100 up; ip -d link show vx100
+3: vx100: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 7a:0c:ce:8e:8f:27 brd ff:ff:ff:ff:ff:ff promiscuity 0  allmulti 0 minmtu 68 maxmtu 65535 
+    vxlan id 100 remote 10.45.0.1 fan-map local 10.45.0.2 dev h2-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+h2$ python3 -c 'import array,fcntl,socket,struct,sys;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);[fcntl.ioctl(s,0x8946,struct.pack('"'"'16sP'"'"',n.encode(),b.buffer_info()[0])) for n in sys.argv[1:] for c in (0x1f,0x24) for b in [array.array('"'"'B'"'"',struct.pack('"'"'II'"'"',c,0))]]' vx100
+
+[exit status 0]
+h2$ timeout 8 tcpdump -U -l -n -e -vv -i h2-eth0 udp port 4789
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 56(84) bytes of data.
+64 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.094 ms
+64 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.079 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 104ms
+rtt min/avg/max/mdev = 0.079/0.086/0.094/0.007 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on h2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+08:06:08.568895 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv4 (0x0800), length 140: (tos 0x0, ttl 64, id 44960, offset 0, flags [none], proto UDP (17), length 126)
+    10.45.0.2.33306 > 10.45.0.1.4789: [bad udp cksum 0x14d8 -> 0xb832!] VXLAN, flags [I] (0x08), vni 100
+7a:0c:ce:8e:8f:27 > 33:33:00:00:00:16, ethertype IPv6 (0x86dd), length 90: (hlim 1, next-header Options (0) payload length: 36) :: > ff02::16: HBH (rtalert: 0x0000) (padn) [icmp6 sum ok] ICMP6, multicast listener report v2, 1 group record(s) [gaddr ff02::1:ff8e:8f27 to_ex { }]
+08:06:08.632938 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv4 (0x0800), length 136: (tos 0x0, ttl 64, id 44969, offset 0, flags [none], proto UDP (17), length 122)
+    10.45.0.2.49555 > 10.45.0.1.4789: [bad udp cksum 0x14d4 -> 0xef2c!] VXLAN, flags [I] (0x08), vni 100
+7a:0c:ce:8e:8f:27 > 33:33:ff:8e:8f:27, ethertype IPv6 (0x86dd), length 86: (hlim 255, next-header ICMPv6 (58) payload length: 32) :: > ff02::1:ff8e:8f27: [icmp6 sum ok] ICMP6, neighbor solicitation, length 32, who has fe80::780c:ceff:fe8e:8f27
+	  unknown option (14), length 8 (1): 
+	    0x0000:  ac68 62ce a85b
+08:06:08.637094 86:31:fd:4d:69:55 > 6a:6d:ee:ee:ea:5b, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 20449, offset 0, flags [none], proto UDP (17), length 78)
+    10.45.0.1.55580 > 10.45.0.2.4789: [bad udp cksum 0x14a8 -> 0xbc3c!] VXLAN, flags [I] (0x08), vni 100
+8e:42:9f:7a:44:95 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 10.45.100.2 tell 10.45.100.1, length 28
+08:06:08.637112 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 44970, offset 0, flags [none], proto UDP (17), length 78)
+    10.45.0.2.55580 > 10.45.0.1.4789: [bad udp cksum 0x14a8 -> 0x0cb6!] VXLAN, flags [I] (0x08), vni 100
+7a:0c:ce:8e:8f:27 > 8e:42:9f:7a:44:95, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Reply 10.45.100.2 is-at 7a:0c:ce:8e:8f:27, length 28
+08:06:08.637128 86:31:fd:4d:69:55 > 6a:6d:ee:ee:ea:5b, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 20450, offset 0, flags [none], proto UDP (17), length 134)
+    10.45.0.1.60518 > 10.45.0.2.4789: [bad udp cksum 0x14e0 -> 0x2d7c!] VXLAN, flags [I] (0x08), vni 100
+8e:42:9f:7a:44:95 > 7a:0c:ce:8e:8f:27, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.45.100.1 > 10.45.100.2: ICMP echo request, id 131, seq 1, length 64
+08:06:08.637142 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 44971, offset 0, flags [none], proto UDP (17), length 134)
+    10.45.0.2.60518 > 10.45.0.1.4789: [bad udp cksum 0x14e0 -> 0x2d7c!] VXLAN, flags [I] (0x08), vni 100
+7a:0c:ce:8e:8f:27 > 8e:42:9f:7a:44:95, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 45686, offset 0, flags [none], proto ICMP (1), length 84)
+    10.45.100.2 > 10.45.100.1: ICMP echo reply, id 131, seq 1, length 64
+08:06:08.741051 86:31:fd:4d:69:55 > 6a:6d:ee:ee:ea:5b, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 20468, offset 0, flags [none], proto UDP (17), length 134)
+    10.45.0.1.60518 > 10.45.0.2.4789: [bad udp cksum 0x14e0 -> 0x2d7c!] VXLAN, flags [I] (0x08), vni 100
+8e:42:9f:7a:44:95 > 7a:0c:ce:8e:8f:27, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.45.100.1 > 10.45.100.2: ICMP echo request, id 131, seq 2, length 64
+08:06:08.741079 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv4 (0x0800), length 148: (tos 0x0, ttl 64, id 44980, offset 0, flags [none], proto UDP (17), length 134)
+    10.45.0.2.60518 > 10.45.0.1.4789: [bad udp cksum 0x14e0 -> 0x2d7c!] VXLAN, flags [I] (0x08), vni 100
+7a:0c:ce:8e:8f:27 > 8e:42:9f:7a:44:95, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 45707, offset 0, flags [none], proto ICMP (1), length 84)
+    10.45.100.2 > 10.45.100.1: ICMP echo reply, id 131, seq 2, length 64
+
+8 packets captured
+8 packets received by filter
+0 packets dropped by kernel
+
+PART 4: IPv4 MTU and throughput
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1472 10.45.0.2
+PING 10.45.0.2 (10.45.0.2) 1472(1500) bytes of data.
+1480 bytes from 10.45.0.2: icmp_seq=1 ttl=64 time=0.051 ms
+1480 bytes from 10.45.0.2: icmp_seq=2 ttl=64 time=0.072 ms
+
+--- 10.45.0.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.051/0.061/0.072/0.010 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1473 10.45.0.2
+PING 10.45.0.2 (10.45.0.2) 1473(1501) bytes of data.
+
+--- 10.45.0.2 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 102ms
+
+ping: local error: message too long, mtu=1500
+ping: local error: message too long, mtu=1500
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1422(1450) bytes of data.
+1430 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.064 ms
+1430 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.110 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.064/0.087/0.110/0.023 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1423 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1423(1451) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 102ms
+
+ping: local error: message too long, mtu=1450
+ping: local error: message too long, mtu=1450
+[exit status 1]
+h2$ iperf3 -s -1 -J
+h1$ timeout 15 iperf3 -c 10.45.0.2 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.0.1",
+				"local_port":	54570,
+				"remote_host":	"10.45.0.2",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:09 GMT",
+			"timesecs":	1795161969
+		},
+		"connecting_to":	{
+			"host":	"10.45.0.2",
+			"port":	5201
+		},
+		"cookie":	"swjbk7nbtdebnznkzk3fhs7k64yxdmucsswh",
+		"tcp_mss_default":	1448,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001017,
+					"seconds":	1.0010169744491577,
+					"bytes":	339476480,
+					"bits_per_second":	2713052734.6896033,
+					"retransmits":	0,
+					"snd_cwnd":	421368,
+					"snd_wnd":	15217664,
+					"rtt":	364,
+					"rttvar":	193,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001017,
+				"seconds":	1.0010169744491577,
+				"bytes":	339476480,
+				"bits_per_second":	2713052734.6896033,
+				"retransmits":	0,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001017,
+					"end":	2.00114,
+					"seconds":	1.0001230239868164,
+					"bytes":	335675392,
+					"bits_per_second":	2685072807.6383119,
+					"retransmits":	0,
+					"snd_cwnd":	421368,
+					"snd_wnd":	15217664,
+					"rtt":	264,
+					"rttvar":	188,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.001017,
+				"end":	2.00114,
+				"seconds":	1.0001230239868164,
+				"bytes":	335675392,
+				"bits_per_second":	2685072807.6383119,
+				"retransmits":	0,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.00114,
+					"end":	3.01139,
+					"seconds":	1.0102499723434448,
+					"bytes":	339869696,
+					"bits_per_second":	2691371088.7741184,
+					"retransmits":	292,
+					"snd_cwnd":	564720,
+					"snd_wnd":	20052992,
+					"rtt":	339,
+					"rttvar":	151,
+					"pmtu":	1500,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.00114,
+				"end":	3.01139,
+				"seconds":	1.0102499723434448,
+				"bytes":	339869696,
+				"bits_per_second":	2691371088.7741184,
+				"retransmits":	292,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.01139,
+					"seconds":	3.01139,
+					"bytes":	1018429440,
+					"bits_per_second":	2705539807.198669,
+					"retransmits":	292,
+					"max_snd_cwnd":	564720,
+					"max_snd_wnd":	20052992,
+					"max_rtt":	364,
+					"min_rtt":	264,
+					"mean_rtt":	322,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.011516,
+					"seconds":	3.01139,
+					"bytes":	1018429440,
+					"bits_per_second":	2705426609.0567012,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.01139,
+			"seconds":	3.01139,
+			"bytes":	1018429440,
+			"bits_per_second":	2705539807.198669,
+			"retransmits":	292,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.011516,
+			"seconds":	3.011516,
+			"bytes":	1018429440,
+			"bits_per_second":	2705426609.0567012,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	96.371884193113246,
+			"host_user":	0,
+			"host_system":	96.371917377503962,
+			"remote_total":	33.03789427616158,
+			"remote_user":	0.506879650201573,
+			"remote_system":	32.530981420611162
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 2705.427 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.0.2",
+				"local_port":	5201,
+				"remote_host":	"10.45.0.1",
+				"remote_port":	54570
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:09 GMT",
+			"timesecs":	1795161969
+		},
+		"accepted_connection":	{
+			"host":	"10.45.0.1",
+			"port":	54562
+		},
+		"cookie":	"swjbk7nbtdebnznkzk3fhs7k64yxdmucsswh",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001149,
+					"seconds":	1.00114905834198,
+					"bytes":	339476480,
+					"bits_per_second":	2712694795.4160814,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001149,
+				"seconds":	1.00114905834198,
+				"bytes":	339476480,
+				"bits_per_second":	2712694795.4160814,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001149,
+					"end":	2.001484,
+					"seconds":	1.0003349781036377,
+					"bytes":	335806464,
+					"bits_per_second":	2685552110.8466883,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001149,
+				"end":	2.001484,
+				"seconds":	1.0003349781036377,
+				"bytes":	335806464,
+				"bits_per_second":	2685552110.8466883,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001484,
+					"end":	3.001038,
+					"seconds":	0.99955397844314575,
+					"bytes":	342228992,
+					"bits_per_second":	2739053612.956758,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001484,
+				"end":	3.001038,
+				"seconds":	0.99955397844314575,
+				"bytes":	342228992,
+				"bits_per_second":	2739053612.956758,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	3.001038,
+					"end":	3.011516,
+					"seconds":	0.0104780001565814,
+					"bytes":	786432,
+					"bits_per_second":	600444350.63767719,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	3.001038,
+				"end":	3.011516,
+				"seconds":	0.0104780001565814,
+				"bytes":	786432,
+				"bits_per_second":	600444350.63767719,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.011516,
+					"seconds":	3.011516,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.011516,
+					"seconds":	3.011516,
+					"bytes":	1018429440,
+					"bits_per_second":	2705426609.0567012,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.011516,
+			"seconds":	3.011516,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.011516,
+			"seconds":	3.011516,
+			"bytes":	1018429440,
+			"bits_per_second":	2705426609.0567012,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	33.03789427616158,
+			"host_user":	0.506879650201573,
+			"host_system":	32.530981420611162,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+h2$ iperf3 -s -1 -J
+h1$ timeout 15 iperf3 -c 10.45.100.2 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.1",
+				"local_port":	48928,
+				"remote_host":	"10.45.100.2",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:13 GMT",
+			"timesecs":	1795161973
+		},
+		"connecting_to":	{
+			"host":	"10.45.100.2",
+			"port":	5201
+		},
+		"cookie":	"6tzqqkpdqpndvkbid6eob673vhpznxjja3uf",
+		"tcp_mss_default":	1398,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001134,
+					"seconds":	1.0011340379714966,
+					"bytes":	230424576,
+					"bits_per_second":	1841308494.2502811,
+					"retransmits":	31,
+					"snd_cwnd":	257232,
+					"snd_wnd":	23552000,
+					"rtt":	367,
+					"rttvar":	139,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001134,
+				"seconds":	1.0011340379714966,
+				"bytes":	230424576,
+				"bits_per_second":	1841308494.2502811,
+				"retransmits":	31,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001134,
+					"end":	2.001041,
+					"seconds":	0.99990701675415039,
+					"bytes":	221642752,
+					"bits_per_second":	1773306903.8318057,
+					"retransmits":	33,
+					"snd_cwnd":	257232,
+					"snd_wnd":	23552000,
+					"rtt":	467,
+					"rttvar":	122,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.001134,
+				"end":	2.001041,
+				"seconds":	0.99990701675415039,
+				"bytes":	221642752,
+				"bits_per_second":	1773306903.8318057,
+				"retransmits":	33,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001041,
+					"end":	3.00191,
+					"seconds":	1.0008690357208252,
+					"bytes":	223346688,
+					"bits_per_second":	1785222082.2409267,
+					"retransmits":	7,
+					"snd_cwnd":	367674,
+					"snd_wnd":	29490176,
+					"rtt":	372,
+					"rttvar":	184,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.001041,
+				"end":	3.00191,
+				"seconds":	1.0008690357208252,
+				"bytes":	223346688,
+				"bits_per_second":	1785222082.2409267,
+				"retransmits":	7,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.00191,
+					"seconds":	3.00191,
+					"bytes":	689569792,
+					"bits_per_second":	1837682787.2920907,
+					"retransmits":	71,
+					"max_snd_cwnd":	367674,
+					"max_snd_wnd":	29490176,
+					"max_rtt":	467,
+					"min_rtt":	367,
+					"mean_rtt":	402,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002035,
+					"seconds":	3.00191,
+					"bytes":	689700864,
+					"bits_per_second":	1837955557.480176,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.00191,
+			"seconds":	3.00191,
+			"bytes":	689569792,
+			"bits_per_second":	1837682787.2920907,
+			"retransmits":	71,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002035,
+			"seconds":	3.002035,
+			"bytes":	689700864,
+			"bits_per_second":	1837955557.480176,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	94.1550614534664,
+			"host_user":	0,
+			"host_system":	94.1550281561829,
+			"remote_total":	22.9590155934543,
+			"remote_user":	0.521602761806513,
+			"remote_system":	22.4373795215538
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1837.956 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.2",
+				"local_port":	5201,
+				"remote_host":	"10.45.100.1",
+				"remote_port":	48928
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:13 GMT",
+			"timesecs":	1795161973
+		},
+		"accepted_connection":	{
+			"host":	"10.45.100.1",
+			"port":	48926
+		},
+		"cookie":	"6tzqqkpdqpndvkbid6eob673vhpznxjja3uf",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001044,
+					"seconds":	1.0010440349578857,
+					"bytes":	230424576,
+					"bits_per_second":	1841474044.72327,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001044,
+				"seconds":	1.0010440349578857,
+				"bytes":	230424576,
+				"bits_per_second":	1841474044.72327,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001044,
+					"end":	2.001099,
+					"seconds":	1.0000549554824829,
+					"bytes":	226885632,
+					"bits_per_second":	1814985312.6064463,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001044,
+				"end":	2.001099,
+				"seconds":	1.0000549554824829,
+				"bytes":	226885632,
+				"bits_per_second":	1814985312.6064463,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001099,
+					"end":	3.00105,
+					"seconds":	0.99995100498199463,
+					"bytes":	232128512,
+					"bits_per_second":	1857119085.5830362,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001099,
+				"end":	3.00105,
+				"seconds":	0.99995100498199463,
+				"bytes":	232128512,
+				"bits_per_second":	1857119085.5830362,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	3.00105,
+					"end":	3.002035,
+					"seconds":	0.00098500004969537258,
+					"bytes":	262144,
+					"bits_per_second":	2129088217.456008,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	3.00105,
+				"end":	3.002035,
+				"seconds":	0.00098500004969537258,
+				"bytes":	262144,
+				"bits_per_second":	2129088217.456008,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002035,
+					"seconds":	3.002035,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.002035,
+					"seconds":	3.002035,
+					"bytes":	689700864,
+					"bits_per_second":	1837955557.480176,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.002035,
+			"seconds":	3.002035,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.002035,
+			"seconds":	3.002035,
+			"bytes":	689700864,
+			"bits_per_second":	1837955557.480176,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	22.9590155934543,
+			"host_user":	0.521602761806513,
+			"host_system":	22.4373795215538,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+
+PART 5: IPv6 underlay
+h1$ ip -6 addr add fd00:1945::1/64 dev h1-eth0 nodad
+
+[exit status 0]
+h1$ ip link add vx106 type vxlan id 106 local fd00:1945::1 remote fd00:1945::2 dstport 4789 dev h1-eth0
+
+[exit status 0]
+h1$ ip addr add 10.45.106.1/24 dev vx106; ip link set vx106 up; ip -d link show vx106
+4: vx106: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1430 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 02:2b:8d:6e:96:16 brd ff:ff:ff:ff:ff:ff promiscuity 0  allmulti 0 minmtu 68 maxmtu 65535 
+    vxlan id 106 remote fd00:1945::2 fan-map local fd00:1945::1 dev h1-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+h2$ ip -6 addr add fd00:1945::2/64 dev h2-eth0 nodad
+
+[exit status 0]
+h2$ ip link add vx106 type vxlan id 106 local fd00:1945::2 remote fd00:1945::1 dstport 4789 dev h2-eth0
+
+[exit status 0]
+h2$ ip addr add 10.45.106.2/24 dev vx106; ip link set vx106 up; ip -d link show vx106
+4: vx106: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1430 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether f6:e8:fe:ea:f2:78 brd ff:ff:ff:ff:ff:ff promiscuity 0  allmulti 0 minmtu 68 maxmtu 65535 
+    vxlan id 106 remote fd00:1945::1 fan-map local fd00:1945::2 dev h2-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+h1$ ping -6 -n -c 2 -W 1 fd00:1945::2
+PING fd00:1945::2 (fd00:1945::2) 56 data bytes
+64 bytes from fd00:1945::2: icmp_seq=1 ttl=64 time=0.041 ms
+64 bytes from fd00:1945::2: icmp_seq=2 ttl=64 time=0.112 ms
+
+--- fd00:1945::2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1005ms
+rtt min/avg/max/mdev = 0.041/0.076/0.112/0.035 ms
+[exit status 0]
+h2$ timeout 8 tcpdump -U -l -n -e -vv -i h2-eth0 ip6 and udp port 4789
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.106.2
+PING 10.45.106.2 (10.45.106.2) 56(84) bytes of data.
+64 bytes from 10.45.106.2: icmp_seq=1 ttl=64 time=0.114 ms
+64 bytes from 10.45.106.2: icmp_seq=2 ttl=64 time=0.134 ms
+
+--- 10.45.106.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.114/0.124/0.134/0.010 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on h2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+08:06:17.523538 86:31:fd:4d:69:55 > 6a:6d:ee:ee:ea:5b, ethertype IPv6 (0x86dd), length 112: (hlim 64, next-header UDP (17) payload length: 58) fd00:1945::1.55580 > fd00:1945::2.4789: [bad udp cksum 0x2cda -> 0x2b4f!] VXLAN, flags [I] (0x08), vni 106
+02:2b:8d:6e:96:16 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 10.45.106.2 tell 10.45.106.1, length 28
+08:06:17.523567 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv6 (0x86dd), length 112: (hlim 64, next-header UDP (17) payload length: 58) fd00:1945::2.55580 > fd00:1945::1.4789: [bad udp cksum 0x2cda -> 0x5ab4!] VXLAN, flags [I] (0x08), vni 106
+f6:e8:fe:ea:f2:78 > 02:2b:8d:6e:96:16, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Reply 10.45.106.2 is-at f6:e8:fe:ea:f2:78, length 28
+08:06:17.523586 86:31:fd:4d:69:55 > 6a:6d:ee:ee:ea:5b, ethertype IPv6 (0x86dd), length 168: (hlim 64, next-header UDP (17) payload length: 114) fd00:1945::1.43083 > fd00:1945::2.4789: [bad udp cksum 0x2d12 -> 0x8f7d!] VXLAN, flags [I] (0x08), vni 106
+02:2b:8d:6e:96:16 > f6:e8:fe:ea:f2:78, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.45.106.1 > 10.45.106.2: ICMP echo request, id 174, seq 1, length 64
+08:06:17.523601 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv6 (0x86dd), length 168: (hlim 64, next-header UDP (17) payload length: 114) fd00:1945::2.43083 > fd00:1945::1.4789: [bad udp cksum 0x2d12 -> 0x8f7d!] VXLAN, flags [I] (0x08), vni 106
+f6:e8:fe:ea:f2:78 > 02:2b:8d:6e:96:16, ethertype IPv4 (0x0800), length 98: (tos 0x0, ttl 64, id 52729, offset 0, flags [none], proto ICMP (1), length 84)
+    10.45.106.2 > 10.45.106.1: ICMP echo reply, id 174, seq 1, length 64
+08:06:17.592825 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv6 (0x86dd), length 160: (hlim 64, next-header UDP (17) payload length: 106) fd00:1945::2.54653 > fd00:1945::1.4789: [bad udp cksum 0x2d0a -> 0x3613!] VXLAN, flags [I] (0x08), vni 106
+f6:e8:fe:ea:f2:78 > 33:33:00:00:00:16, ethertype IPv6 (0x86dd), length 90: (hlim 1, next-header Options (0) payload length: 36) fe80::f4e8:feff:feea:f278 > ff02::16: HBH (rtalert: 0x0000) (padn) [icmp6 sum ok] ICMP6, multicast listener report v2, 1 group record(s) [gaddr ff02::1:ffea:f278 to_ex { }]
+08:06:17.592890 6a:6d:ee:ee:ea:5b > 86:31:fd:4d:69:55, ethertype IPv6 (0x86dd), length 140: (hlim 64, next-header UDP (17) payload length: 86) fd00:1945::2.46904 > fd00:1945::1.4789: [bad udp cksum 0x2cf6 -> 0x59a0!] VXLAN, flags [I] (0x08), vni 106
+f6:e8:fe:ea:f2:78 > 33:33:00:00:00:02, ethertype IPv6 (0x86dd), length 70: (hlim 255, next-header ICMPv6 (58) payload length: 16) fe80::f4e8:feff:feea:f278 > ff02::2: [icmp6 sum ok] ICMP6, router solicitation, length 16
+	  source link-address option (1), length 8 (1): f6:e8:fe:ea:f2:78
+	    0x0000:  f6e8 feea f278
+
+6 packets captured
+8 packets received by filter
+0 packets dropped by kernel
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1402 10.45.106.2
+PING 10.45.106.2 (10.45.106.2) 1402(1430) bytes of data.
+1410 bytes from 10.45.106.2: icmp_seq=1 ttl=64 time=0.085 ms
+1410 bytes from 10.45.106.2: icmp_seq=2 ttl=64 time=0.105 ms
+
+--- 10.45.106.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.085/0.095/0.105/0.010 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1403 10.45.106.2
+PING 10.45.106.2 (10.45.106.2) 1403(1431) bytes of data.
+
+--- 10.45.106.2 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 102ms
+
+ping: local error: message too long, mtu=1430
+ping: local error: message too long, mtu=1430
+[exit status 1]
+
+PART 6: receive-side underlay MTU mismatch
+h2$ ip link set h2-eth0 mtu 1400; ip -s -s link show h2-eth0; nstat -az
+2: h2-eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 6a:6d:ee:ee:ea:5b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+    1812738792 1202107      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+       4488892   49848      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2 
+#kernel
+IpInReceives                    1231469            0.0
+IpInHdrErrors                   0                  0.0
+IpInAddrErrors                  0                  0.0
+IpForwDatagrams                 0                  0.0
+IpInUnknownProtos               0                  0.0
+IpInDiscards                    0                  0.0
+IpInDelivers                    1231467            0.0
+IpOutRequests                   73342              0.0
+IpOutDiscards                   0                  0.0
+IpOutNoRoutes                   0                  0.0
+IpReasmTimeout                  0                  0.0
+IpReasmReqds                    0                  0.0
+IpReasmOKs                      0                  0.0
+IpReasmFails                    0                  0.0
+IpFragOKs                       0                  0.0
+IpFragFails                     0                  0.0
+IpFragCreates                   0                  0.0
+IpOutTransmits                  73342              0.0
+IcmpInMsgs                      12                 0.0
+IcmpInErrors                    0                  0.0
+IcmpInCsumErrors                0                  0.0
+IcmpInDestUnreachs              0                  0.0
+IcmpInTimeExcds                 0                  0.0
+IcmpInParmProbs                 0                  0.0
+IcmpInSrcQuenchs                0                  0.0
+IcmpInRedirects                 0                  0.0
+IcmpInEchos                     12                 0.0
+IcmpInEchoReps                  0                  0.0
+IcmpInTimestamps                0                  0.0
+IcmpInTimestampReps             0                  0.0
+IcmpInAddrMasks                 0                  0.0
+IcmpInAddrMaskReps              0                  0.0
+IcmpOutMsgs                     13                 0.0
+IcmpOutErrors                   0                  0.0
+IcmpOutRateLimitGlobal          0                  0.0
+IcmpOutRateLimitHost            0                  0.0
+IcmpOutDestUnreachs             1                  0.0
+IcmpOutTimeExcds                0                  0.0
+IcmpOutParmProbs                0                  0.0
+IcmpOutSrcQuenchs               0                  0.0
+IcmpOutRedirects                0                  0.0
+IcmpOutEchos                    0                  0.0
+IcmpOutEchoReps                 12                 0.0
+IcmpOutTimestamps               0                  0.0
+IcmpOutTimestampReps            0                  0.0
+IcmpOutAddrMasks                0                  0.0
+IcmpOutAddrMaskReps             0                  0.0
+IcmpMsgInType8                  12                 0.0
+IcmpMsgOutType0                 12                 0.0
+IcmpMsgOutType3                 1                  0.0
+TcpActiveOpens                  0                  0.0
+TcpPassiveOpens                 4                  0.0
+TcpAttemptFails                 0                  0.0
+TcpEstabResets                  0                  0.0
+TcpInSegs                       736733             0.0
+TcpOutSegs                      49806              0.0
+TcpRetransSegs                  0                  0.0
+TcpInErrs                       0                  0.0
+TcpOutRsts                      0                  0.0
+TcpInCsumErrors                 0                  0.0
+UdpInDatagrams                  494721             0.0
+UdpNoPorts                      1                  0.0
+UdpInErrors                     0                  0.0
+UdpOutDatagrams                 0                  0.0
+UdpRcvbufErrors                 0                  0.0
+UdpSndbufErrors                 0                  0.0
+UdpInCsumErrors                 0                  0.0
+UdpIgnoredMulti                 0                  0.0
+UdpMemErrors                    0                  0.0
+UdpLiteInDatagrams              0                  0.0
+UdpLiteNoPorts                  0                  0.0
+UdpLiteInErrors                 0                  0.0
+UdpLiteOutDatagrams             0                  0.0
+UdpLiteRcvbufErrors             0                  0.0
+UdpLiteSndbufErrors             0                  0.0
+UdpLiteInCsumErrors             0                  0.0
+UdpLiteIgnoredMulti             0                  0.0
+UdpLiteMemErrors                0                  0.0
+Ip6InReceives                   47                 0.0
+Ip6InHdrErrors                  0                  0.0
+Ip6InTooBigErrors               0                  0.0
+Ip6InNoRoutes                   0                  0.0
+Ip6InAddrErrors                 0                  0.0
+Ip6InUnknownProtos              0                  0.0
+Ip6InTruncatedPkts              0                  0.0
+Ip6InDiscards                   0                  0.0
+Ip6InDelivers                   13                 0.0
+Ip6OutForwDatagrams             0                  0.0
+Ip6OutRequests                  26                 0.0
+Ip6OutDiscards                  0                  0.0
+Ip6OutNoRoutes                  0                  0.0
+Ip6ReasmTimeout                 0                  0.0
+Ip6ReasmReqds                   0                  0.0
+Ip6ReasmOKs                     0                  0.0
+Ip6ReasmFails                   0                  0.0
+Ip6FragOKs                      0                  0.0
+Ip6FragFails                    0                  0.0
+Ip6FragCreates                  0                  0.0
+Ip6InMcastPkts                  35                 0.0
+Ip6OutMcastPkts                 22                 0.0
+Ip6InOctets                     6936               0.0
+Ip6OutOctets                    6332               0.0
+Ip6InMcastOctets                2616               0.0
+Ip6OutMcastOctets               1600               0.0
+Ip6InBcastOctets                0                  0.0
+Ip6OutBcastOctets               0                  0.0
+Ip6InNoECTPkts                  47                 0.0
+Ip6InECT1Pkts                   0                  0.0
+Ip6InECT0Pkts                   0                  0.0
+Ip6InCEPkts                     0                  0.0
+Ip6OutTransmits                 37                 0.0
+Icmp6InMsgs                     3                  0.0
+Icmp6InErrors                   0                  0.0
+Icmp6OutMsgs                    26                 0.0
+Icmp6OutErrors                  0                  0.0
+Icmp6InCsumErrors               0                  0.0
+Icmp6OutRateLimitHost           0                  0.0
+Icmp6InDestUnreachs             0                  0.0
+Icmp6InPktTooBigs               0                  0.0
+Icmp6InTimeExcds                0                  0.0
+Icmp6InParmProblems             0                  0.0
+Icmp6InEchos                    2                  0.0
+Icmp6InEchoReplies              0                  0.0
+Icmp6InGroupMembQueries         0                  0.0
+Icmp6InGroupMembResponses       0                  0.0
+Icmp6InGroupMembReductions      0                  0.0
+Icmp6InRouterSolicits           0                  0.0
+Icmp6InRouterAdvertisements     0                  0.0
+Icmp6InNeighborSolicits         1                  0.0
+Icmp6InNeighborAdvertisements   0                  0.0
+Icmp6InRedirects                0                  0.0
+Icmp6InMLDv2Reports             0                  0.0
+Icmp6OutDestUnreachs            1                  0.0
+Icmp6OutPktTooBigs              0                  0.0
+Icmp6OutTimeExcds               0                  0.0
+Icmp6OutParmProblems            0                  0.0
+Icmp6OutEchos                   0                  0.0
+Icmp6OutEchoReplies             2                  0.0
+Icmp6OutGroupMembQueries        0                  0.0
+Icmp6OutGroupMembResponses      0                  0.0
+Icmp6OutGroupMembReductions     0                  0.0
+Icmp6OutRouterSolicits          5                  0.0
+Icmp6OutRouterAdvertisements    0                  0.0
+Icmp6OutNeighborSolicits        3                  0.0
+Icmp6OutNeighborAdvertisements  1                  0.0
+Icmp6OutRedirects               0                  0.0
+Icmp6OutMLDv2Reports            14                 0.0
+Icmp6InType128                  2                  0.0
+Icmp6InType135                  1                  0.0
+Icmp6OutType1                   1                  0.0
+Icmp6OutType129                 2                  0.0
+Icmp6OutType133                 5                  0.0
+Icmp6OutType135                 3                  0.0
+Icmp6OutType136                 1                  0.0
+Icmp6OutType143                 14                 0.0
+Udp6InDatagrams                 9                  0.0
+Udp6NoPorts                     1                  0.0
+Udp6InErrors                    0                  0.0
+Udp6OutDatagrams                0                  0.0
+Udp6RcvbufErrors                0                  0.0
+Udp6SndbufErrors                0                  0.0
+Udp6InCsumErrors                0                  0.0
+Udp6IgnoredMulti                0                  0.0
+Udp6MemErrors                   0                  0.0
+UdpLite6InDatagrams             0                  0.0
+UdpLite6NoPorts                 0                  0.0
+UdpLite6InErrors                0                  0.0
+UdpLite6OutDatagrams            0                  0.0
+UdpLite6RcvbufErrors            0                  0.0
+UdpLite6SndbufErrors            0                  0.0
+UdpLite6InCsumErrors            0                  0.0
+UdpLite6MemErrors               0                  0.0
+TcpExtSyncookiesSent            0                  0.0
+TcpExtSyncookiesRecv            0                  0.0
+TcpExtSyncookiesFailed          0                  0.0
+TcpExtEmbryonicRsts             0                  0.0
+TcpExtPruneCalled               0                  0.0
+TcpExtRcvPruned                 0                  0.0
+TcpExtOfoPruned                 0                  0.0
+TcpExtOutOfWindowIcmps          0                  0.0
+TcpExtLockDroppedIcmps          0                  0.0
+TcpExtArpFilter                 0                  0.0
+TcpExtTW                        0                  0.0
+TcpExtTWRecycled                0                  0.0
+TcpExtTWKilled                  0                  0.0
+TcpExtPAWSActive                0                  0.0
+TcpExtPAWSEstab                 0                  0.0
+TcpExtBeyondWindow              0                  0.0
+TcpExtTSEcrRejected             0                  0.0
+TcpExtPAWSOldAck                0                  0.0
+TcpExtPAWSTimewait              0                  0.0
+TcpExtDelayedACKs               0                  0.0
+TcpExtDelayedACKLocked          0                  0.0
+TcpExtDelayedACKLost            363                0.0
+TcpExtListenOverflows           0                  0.0
+TcpExtListenDrops               0                  0.0
+TcpExtTCPHPHits                 286026             0.0
+TcpExtTCPPureAcks               8                  0.0
+TcpExtTCPHPAcks                 11                 0.0
+TcpExtTCPRenoRecovery           0                  0.0
+TcpExtTCPSackRecovery           0                  0.0
+TcpExtTCPSACKReneging           0                  0.0
+TcpExtTCPSACKReorder            0                  0.0
+TcpExtTCPRenoReorder            0                  0.0
+TcpExtTCPTSReorder              0                  0.0
+TcpExtTCPFullUndo               0                  0.0
+TcpExtTCPPartialUndo            0                  0.0
+TcpExtTCPDSACKUndo              0                  0.0
+TcpExtTCPLossUndo               0                  0.0
+TcpExtTCPLostRetransmit         0                  0.0
+TcpExtTCPRenoFailures           0                  0.0
+TcpExtTCPSackFailures           0                  0.0
+TcpExtTCPLossFailures           0                  0.0
+TcpExtTCPFastRetrans            0                  0.0
+TcpExtTCPSlowStartRetrans       0                  0.0
+TcpExtTCPTimeouts               0                  0.0
+TcpExtTCPLossProbes             0                  0.0
+TcpExtTCPLossProbeRecovery      0                  0.0
+TcpExtTCPRenoRecoveryFail       0                  0.0
+TcpExtTCPSackRecoveryFail       0                  0.0
+TcpExtTCPRcvCollapsed           0                  0.0
+TcpExtTCPBacklogCoalesce        146046             0.0
+TcpExtTCPDSACKOldSent           363                0.0
+TcpExtTCPDSACKOfoSent           0                  0.0
+TcpExtTCPDSACKRecv              0                  0.0
+TcpExtTCPDSACKOfoRecv           0                  0.0
+TcpExtTCPAbortOnData            0                  0.0
+TcpExtTCPAbortOnClose           0                  0.0
+TcpExtTCPAbortOnMemory          0                  0.0
+TcpExtTCPAbortOnTimeout         0                  0.0
+TcpExtTCPAbortOnLinger          0                  0.0
+TcpExtTCPAbortFailed            0                  0.0
+TcpExtTCPMemoryPressures        0                  0.0
+TcpExtTCPMemoryPressuresChrono  0                  0.0
+TcpExtTCPSACKDiscard            0                  0.0
+TcpExtTCPDSACKIgnoredOld        0                  0.0
+TcpExtTCPDSACKIgnoredNoUndo     0                  0.0
+TcpExtTCPSpuriousRTOs           0                  0.0
+TcpExtTCPMD5NotFound            0                  0.0
+TcpExtTCPMD5Unexpected          0                  0.0
+TcpExtTCPMD5Failure             0                  0.0
+TcpExtTCPSackShifted            0                  0.0
+TcpExtTCPSackMerged             0                  0.0
+TcpExtTCPSackShiftFallback      0                  0.0
+TcpExtTCPBacklogDrop            0                  0.0
+TcpExtPFMemallocDrop            0                  0.0
+TcpExtTCPMinTTLDrop             0                  0.0
+TcpExtTCPDeferAcceptDrop        0                  0.0
+TcpExtIPReversePathFilter       0                  0.0
+TcpExtTCPTimeWaitOverflow       0                  0.0
+TcpExtTCPReqQFullDoCookies      0                  0.0
+TcpExtTCPReqQFullDrop           0                  0.0
+TcpExtTCPRetransFail            0                  0.0
+TcpExtTCPRcvCoalesce            479782             0.0
+TcpExtTCPOFOQueue               238                0.0
+TcpExtTCPOFODrop                0                  0.0
+TcpExtTCPOFOMerge               0                  0.0
+TcpExtTCPChallengeACK           0                  0.0
+TcpExtTCPSYNChallenge           0                  0.0
+TcpExtTCPFastOpenActive         0                  0.0
+TcpExtTCPFastOpenActiveFail     0                  0.0
+TcpExtTCPFastOpenPassive        0                  0.0
+TcpExtTCPFastOpenPassiveFail    0                  0.0
+TcpExtTCPFastOpenListenOverflow 0                  0.0
+TcpExtTCPFastOpenCookieReqd     0                  0.0
+TcpExtTCPFastOpenBlackhole      0                  0.0
+TcpExtTCPSpuriousRtxHostQueues  0                  0.0
+TcpExtBusyPollRxPackets         0                  0.0
+TcpExtTCPAutoCorking            0                  0.0
+TcpExtTCPFromZeroWindowAdv      0                  0.0
+TcpExtTCPToZeroWindowAdv        0                  0.0
+TcpExtTCPWantZeroWindowAdv      0                  0.0
+TcpExtTCPSynRetrans             0                  0.0
+TcpExtTCPOrigDataSent           20                 0.0
+TcpExtTCPHystartTrainDetect     0                  0.0
+TcpExtTCPHystartTrainCwnd       0                  0.0
+TcpExtTCPHystartDelayDetect     0                  0.0
+TcpExtTCPHystartDelayCwnd       0                  0.0
+TcpExtTCPACKSkippedSynRecv      0                  0.0
+TcpExtTCPACKSkippedPAWS         0                  0.0
+TcpExtTCPACKSkippedSeq          0                  0.0
+TcpExtTCPACKSkippedFinWait2     0                  0.0
+TcpExtTCPACKSkippedTimeWait     0                  0.0
+TcpExtTCPACKSkippedChallenge    0                  0.0
+TcpExtTCPWinProbe               0                  0.0
+TcpExtTCPKeepAlive              0                  0.0
+TcpExtTCPMTUPFail               0                  0.0
+TcpExtTCPMTUPSuccess            0                  0.0
+TcpExtTCPDelivered              20                 0.0
+TcpExtTCPDeliveredCE            0                  0.0
+TcpExtTCPAckCompressed          27                 0.0
+TcpExtTCPZeroWindowDrop         0                  0.0
+TcpExtTCPRcvQDrop               0                  0.0
+TcpExtTCPWqueueTooBig           0                  0.0
+TcpExtTCPFastOpenPassiveAltKey  0                  0.0
+TcpExtTcpTimeoutRehash          0                  0.0
+TcpExtTcpDuplicateDataRehash    0                  0.0
+TcpExtTCPDSACKRecvSegs          0                  0.0
+TcpExtTCPDSACKIgnoredDubious    0                  0.0
+TcpExtTCPMigrateReqSuccess      0                  0.0
+TcpExtTCPMigrateReqFailure      0                  0.0
+TcpExtTCPPLBRehash              0                  0.0
+TcpExtTCPAORequired             0                  0.0
+TcpExtTCPAOBad                  0                  0.0
+TcpExtTCPAOKeyNotFound          0                  0.0
+TcpExtTCPAOGood                 0                  0.0
+TcpExtTCPAODroppedIcmps         0                  0.0
+IpExtInNoRoutes                 0                  0.0
+IpExtInTruncatedPkts            0                  0.0
+IpExtInMcastPkts                0                  0.0
+IpExtOutMcastPkts               0                  0.0
+IpExtInBcastPkts                0                  0.0
+IpExtOutBcastPkts               0                  0.0
+IpExtInOctets                   2487238151         0.0
+IpExtOutOctets                  5017572            0.0
+IpExtInMcastOctets              0                  0.0
+IpExtOutMcastOctets             0                  0.0
+IpExtInBcastOctets              0                  0.0
+IpExtOutBcastOctets             0                  0.0
+IpExtInCsumErrors               0                  0.0
+IpExtInNoECTPkts                1696787            0.0
+IpExtInECT1Pkts                 0                  0.0
+IpExtInECT0Pkts                 0                  0.0
+IpExtInCEPkts                   0                  0.0
+IpExtReasmOverlaps              0                  0.0
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 56(84) bytes of data.
+64 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.076 ms
+64 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.088 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.076/0.082/0.088/0.006 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1422(1450) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 739 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 739(767) bytes of data.
+747 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.064 ms
+747 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.158 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.064/0.111/0.158/0.047 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1081 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1081(1109) bytes of data.
+1089 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.036 ms
+1089 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.155 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.036/0.095/0.155/0.059 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1252 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1252(1280) bytes of data.
+1260 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.045 ms
+1260 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.140 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 108ms
+rtt min/avg/max/mdev = 0.045/0.092/0.140/0.047 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1337 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1337(1365) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1294 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1294(1322) bytes of data.
+1302 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.107 ms
+1302 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.106 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.106/0.106/0.107/0.000 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1315 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1315(1343) bytes of data.
+1323 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.039 ms
+1323 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.118 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.039/0.078/0.118/0.039 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1326 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1326(1354) bytes of data.
+1334 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.089 ms
+1334 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.124 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 105ms
+rtt min/avg/max/mdev = 0.089/0.106/0.124/0.017 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1331 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1331(1359) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 104ms
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1328 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1328(1356) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 101ms
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1327 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1327(1355) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1326 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1326(1354) bytes of data.
+1334 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.159 ms
+1334 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.140 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.140/0.149/0.159/0.009 ms
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1327 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1327(1355) bytes of data.
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 103ms
+[exit status 1]
+OBSERVED largest successful payload=1326; smallest failing payload=1327
+h2$ iperf3 -s -1 -J
+h1$ timeout 15 iperf3 -c 10.45.100.2 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.1",
+				"local_port":	36428,
+				"remote_host":	"10.45.100.2",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:25 GMT",
+			"timesecs":	1795161985
+		},
+		"connecting_to":	{
+			"host":	"10.45.100.2",
+			"port":	5201
+		},
+		"cookie":	"urd6enfiwciekwzpnj3lo4npyj7rw7h4o62u",
+		"tcp_mss_default":	1398,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001351,
+					"seconds":	1.001350998878479,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"retransmits":	2,
+					"snd_cwnd":	1398,
+					"snd_wnd":	64512,
+					"rtt":	34,
+					"rttvar":	18,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001351,
+				"seconds":	1.001350998878479,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"retransmits":	2,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001351,
+					"end":	2.001143,
+					"seconds":	0.999791979789734,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"retransmits":	1,
+					"snd_cwnd":	1398,
+					"snd_wnd":	64512,
+					"rtt":	34,
+					"rttvar":	18,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.001351,
+				"end":	2.001143,
+				"seconds":	0.999791979789734,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"retransmits":	1,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001143,
+					"end":	3.001519,
+					"seconds":	1.0003759860992432,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"retransmits":	0,
+					"snd_cwnd":	1398,
+					"snd_wnd":	64512,
+					"rtt":	34,
+					"rttvar":	18,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.001143,
+				"end":	3.001519,
+				"seconds":	1.0003759860992432,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"retransmits":	0,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001519,
+					"seconds":	3.001519,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"retransmits":	3,
+					"max_snd_cwnd":	1398,
+					"max_snd_wnd":	64512,
+					"max_rtt":	34,
+					"min_rtt":	34,
+					"mean_rtt":	34,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001681,
+					"seconds":	3.001519,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.001519,
+			"seconds":	3.001519,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"retransmits":	3,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.001681,
+			"seconds":	3.001681,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	0.0723853537859138,
+			"host_user":	0,
+			"host_system":	0.072352057855009533,
+			"remote_total":	0.01722340117199082,
+			"remote_user":	0,
+			"remote_system":	0.01722340117199082
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 0.000 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.2",
+				"local_port":	5201,
+				"remote_host":	"10.45.100.1",
+				"remote_port":	36428
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:25 GMT",
+			"timesecs":	1795161985
+		},
+		"accepted_connection":	{
+			"host":	"10.45.100.1",
+			"port":	36422
+		},
+		"cookie":	"urd6enfiwciekwzpnj3lo4npyj7rw7h4o62u",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001394,
+					"seconds":	1.0013940334320068,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001394,
+				"seconds":	1.0013940334320068,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001394,
+					"end":	2.001148,
+					"seconds":	0.999754011631012,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001394,
+				"end":	2.001148,
+				"seconds":	0.999754011631012,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001148,
+					"end":	3.001094,
+					"seconds":	0.9999459981918335,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001148,
+				"end":	3.001094,
+				"seconds":	0.9999459981918335,
+				"bytes":	0,
+				"bits_per_second":	0,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001681,
+					"seconds":	3.001681,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001681,
+					"seconds":	3.001681,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.001681,
+			"seconds":	3.001681,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.001681,
+			"seconds":	3.001681,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	0.01722340117199082,
+			"host_user":	0,
+			"host_system":	0.01722340117199082,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+h2$ ip -s -s link show h2-eth0; nstat -az
+2: h2-eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 6a:6d:ee:ee:ea:5b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+    1812760793 1202152      0      26       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+       4510220   49890      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2 
+#kernel
+IpInReceives                    1231542            0.0
+IpInHdrErrors                   0                  0.0
+IpInAddrErrors                  0                  0.0
+IpForwDatagrams                 0                  0.0
+IpInUnknownProtos               0                  0.0
+IpInDiscards                    0                  0.0
+IpInDelivers                    1231540            0.0
+IpOutRequests                   73410              0.0
+IpOutDiscards                   0                  0.0
+IpOutNoRoutes                   0                  0.0
+IpReasmTimeout                  0                  0.0
+IpReasmReqds                    0                  0.0
+IpReasmOKs                      0                  0.0
+IpReasmFails                    0                  0.0
+IpFragOKs                       4                  0.0
+IpFragFails                     0                  0.0
+IpFragCreates                   8                  0.0
+IpOutTransmits                  73414              0.0
+IcmpInMsgs                      28                 0.0
+IcmpInErrors                    0                  0.0
+IcmpInCsumErrors                0                  0.0
+IcmpInDestUnreachs              0                  0.0
+IcmpInTimeExcds                 0                  0.0
+IcmpInParmProbs                 0                  0.0
+IcmpInSrcQuenchs                0                  0.0
+IcmpInRedirects                 0                  0.0
+IcmpInEchos                     28                 0.0
+IcmpInEchoReps                  0                  0.0
+IcmpInTimestamps                0                  0.0
+IcmpInTimestampReps             0                  0.0
+IcmpInAddrMasks                 0                  0.0
+IcmpInAddrMaskReps              0                  0.0
+IcmpOutMsgs                     29                 0.0
+IcmpOutErrors                   0                  0.0
+IcmpOutRateLimitGlobal          0                  0.0
+IcmpOutRateLimitHost            0                  0.0
+IcmpOutDestUnreachs             1                  0.0
+IcmpOutTimeExcds                0                  0.0
+IcmpOutParmProbs                0                  0.0
+IcmpOutSrcQuenchs               0                  0.0
+IcmpOutRedirects                0                  0.0
+IcmpOutEchos                    0                  0.0
+IcmpOutEchoReps                 28                 0.0
+IcmpOutTimestamps               0                  0.0
+IcmpOutTimestampReps            0                  0.0
+IcmpOutAddrMasks                0                  0.0
+IcmpOutAddrMaskReps             0                  0.0
+IcmpMsgInType8                  28                 0.0
+IcmpMsgOutType0                 28                 0.0
+IcmpMsgOutType3                 1                  0.0
+TcpActiveOpens                  0                  0.0
+TcpPassiveOpens                 6                  0.0
+TcpAttemptFails                 0                  0.0
+TcpEstabResets                  0                  0.0
+TcpInSegs                       736753             0.0
+TcpOutSegs                      49822              0.0
+TcpRetransSegs                  0                  0.0
+TcpInErrs                       0                  0.0
+TcpOutRsts                      0                  0.0
+TcpInCsumErrors                 0                  0.0
+UdpInDatagrams                  494758             0.0
+UdpNoPorts                      1                  0.0
+UdpInErrors                     0                  0.0
+UdpOutDatagrams                 0                  0.0
+UdpRcvbufErrors                 0                  0.0
+UdpSndbufErrors                 0                  0.0
+UdpInCsumErrors                 0                  0.0
+UdpIgnoredMulti                 0                  0.0
+UdpMemErrors                    0                  0.0
+UdpLiteInDatagrams              0                  0.0
+UdpLiteNoPorts                  0                  0.0
+UdpLiteInErrors                 0                  0.0
+UdpLiteOutDatagrams             0                  0.0
+UdpLiteRcvbufErrors             0                  0.0
+UdpLiteSndbufErrors             0                  0.0
+UdpLiteInCsumErrors             0                  0.0
+UdpLiteIgnoredMulti             0                  0.0
+UdpLiteMemErrors                0                  0.0
+Ip6InReceives                   58                 0.0
+Ip6InHdrErrors                  0                  0.0
+Ip6InTooBigErrors               0                  0.0
+Ip6InNoRoutes                   0                  0.0
+Ip6InAddrErrors                 0                  0.0
+Ip6InUnknownProtos              0                  0.0
+Ip6InTruncatedPkts              0                  0.0
+Ip6InDiscards                   0                  0.0
+Ip6InDelivers                   18                 0.0
+Ip6OutForwDatagrams             0                  0.0
+Ip6OutRequests                  31                 0.0
+Ip6OutDiscards                  0                  0.0
+Ip6OutNoRoutes                  0                  0.0
+Ip6ReasmTimeout                 0                  0.0
+Ip6ReasmReqds                   0                  0.0
+Ip6ReasmOKs                     0                  0.0
+Ip6ReasmFails                   0                  0.0
+Ip6FragOKs                      0                  0.0
+Ip6FragFails                    0                  0.0
+Ip6FragCreates                  0                  0.0
+Ip6InMcastPkts                  41                 0.0
+Ip6OutMcastPkts                 25                 0.0
+Ip6InOctets                     7798               0.0
+Ip6OutOctets                    6860               0.0
+Ip6InMcastOctets                2972               0.0
+Ip6OutMcastOctets               1768               0.0
+Ip6InBcastOctets                0                  0.0
+Ip6OutBcastOctets               0                  0.0
+Ip6InNoECTPkts                  58                 0.0
+Ip6InECT1Pkts                   0                  0.0
+Ip6InECT0Pkts                   0                  0.0
+Ip6InCEPkts                     0                  0.0
+Ip6OutTransmits                 44                 0.0
+Icmp6InMsgs                     5                  0.0
+Icmp6InErrors                   0                  0.0
+Icmp6OutMsgs                    31                 0.0
+Icmp6OutErrors                  0                  0.0
+Icmp6InCsumErrors               0                  0.0
+Icmp6OutRateLimitHost           0                  0.0
+Icmp6InDestUnreachs             0                  0.0
+Icmp6InPktTooBigs               0                  0.0
+Icmp6InTimeExcds                0                  0.0
+Icmp6InParmProblems             0                  0.0
+Icmp6InEchos                    2                  0.0
+Icmp6InEchoReplies              0                  0.0
+Icmp6InGroupMembQueries         0                  0.0
+Icmp6InGroupMembResponses       0                  0.0
+Icmp6InGroupMembReductions      0                  0.0
+Icmp6InRouterSolicits           0                  0.0
+Icmp6InRouterAdvertisements     0                  0.0
+Icmp6InNeighborSolicits         2                  0.0
+Icmp6InNeighborAdvertisements   1                  0.0
+Icmp6InRedirects                0                  0.0
+Icmp6InMLDv2Reports             0                  0.0
+Icmp6OutDestUnreachs            1                  0.0
+Icmp6OutPktTooBigs              0                  0.0
+Icmp6OutTimeExcds               0                  0.0
+Icmp6OutParmProblems            0                  0.0
+Icmp6OutEchos                   0                  0.0
+Icmp6OutEchoReplies             2                  0.0
+Icmp6OutGroupMembQueries        0                  0.0
+Icmp6OutGroupMembResponses      0                  0.0
+Icmp6OutGroupMembReductions     0                  0.0
+Icmp6OutRouterSolicits          8                  0.0
+Icmp6OutRouterAdvertisements    0                  0.0
+Icmp6OutNeighborSolicits        4                  0.0
+Icmp6OutNeighborAdvertisements  2                  0.0
+Icmp6OutRedirects               0                  0.0
+Icmp6OutMLDv2Reports            14                 0.0
+Icmp6InType128                  2                  0.0
+Icmp6InType135                  2                  0.0
+Icmp6InType136                  1                  0.0
+Icmp6OutType1                   1                  0.0
+Icmp6OutType129                 2                  0.0
+Icmp6OutType133                 8                  0.0
+Icmp6OutType135                 4                  0.0
+Icmp6OutType136                 2                  0.0
+Icmp6OutType143                 14                 0.0
+Udp6InDatagrams                 12                 0.0
+Udp6NoPorts                     1                  0.0
+Udp6InErrors                    0                  0.0
+Udp6OutDatagrams                0                  0.0
+Udp6RcvbufErrors                0                  0.0
+Udp6SndbufErrors                0                  0.0
+Udp6InCsumErrors                0                  0.0
+Udp6IgnoredMulti                0                  0.0
+Udp6MemErrors                   0                  0.0
+UdpLite6InDatagrams             0                  0.0
+UdpLite6NoPorts                 0                  0.0
+UdpLite6InErrors                0                  0.0
+UdpLite6OutDatagrams            0                  0.0
+UdpLite6RcvbufErrors            0                  0.0
+UdpLite6SndbufErrors            0                  0.0
+UdpLite6InCsumErrors            0                  0.0
+UdpLite6MemErrors               0                  0.0
+TcpExtSyncookiesSent            0                  0.0
+TcpExtSyncookiesRecv            0                  0.0
+TcpExtSyncookiesFailed          0                  0.0
+TcpExtEmbryonicRsts             0                  0.0
+TcpExtPruneCalled               0                  0.0
+TcpExtRcvPruned                 0                  0.0
+TcpExtOfoPruned                 0                  0.0
+TcpExtOutOfWindowIcmps          0                  0.0
+TcpExtLockDroppedIcmps          0                  0.0
+TcpExtArpFilter                 0                  0.0
+TcpExtTW                        1                  0.0
+TcpExtTWRecycled                0                  0.0
+TcpExtTWKilled                  0                  0.0
+TcpExtPAWSActive                0                  0.0
+TcpExtPAWSEstab                 0                  0.0
+TcpExtBeyondWindow              0                  0.0
+TcpExtTSEcrRejected             0                  0.0
+TcpExtPAWSOldAck                0                  0.0
+TcpExtPAWSTimewait              0                  0.0
+TcpExtDelayedACKs               0                  0.0
+TcpExtDelayedACKLocked          0                  0.0
+TcpExtDelayedACKLost            363                0.0
+TcpExtListenOverflows           0                  0.0
+TcpExtListenDrops               0                  0.0
+TcpExtTCPHPHits                 286029             0.0
+TcpExtTCPPureAcks               12                 0.0
+TcpExtTCPHPAcks                 17                 0.0
+TcpExtTCPRenoRecovery           0                  0.0
+TcpExtTCPSackRecovery           0                  0.0
+TcpExtTCPSACKReneging           0                  0.0
+TcpExtTCPSACKReorder            0                  0.0
+TcpExtTCPRenoReorder            0                  0.0
+TcpExtTCPTSReorder              0                  0.0
+TcpExtTCPFullUndo               0                  0.0
+TcpExtTCPPartialUndo            0                  0.0
+TcpExtTCPDSACKUndo              0                  0.0
+TcpExtTCPLossUndo               0                  0.0
+TcpExtTCPLostRetransmit         0                  0.0
+TcpExtTCPRenoFailures           0                  0.0
+TcpExtTCPSackFailures           0                  0.0
+TcpExtTCPLossFailures           0                  0.0
+TcpExtTCPFastRetrans            0                  0.0
+TcpExtTCPSlowStartRetrans       0                  0.0
+TcpExtTCPTimeouts               0                  0.0
+TcpExtTCPLossProbes             0                  0.0
+TcpExtTCPLossProbeRecovery      0                  0.0
+TcpExtTCPRenoRecoveryFail       0                  0.0
+TcpExtTCPSackRecoveryFail       0                  0.0
+TcpExtTCPRcvCollapsed           0                  0.0
+TcpExtTCPBacklogCoalesce        146046             0.0
+TcpExtTCPDSACKOldSent           363                0.0
+TcpExtTCPDSACKOfoSent           0                  0.0
+TcpExtTCPDSACKRecv              0                  0.0
+TcpExtTCPDSACKOfoRecv           0                  0.0
+TcpExtTCPAbortOnData            0                  0.0
+TcpExtTCPAbortOnClose           0                  0.0
+TcpExtTCPAbortOnMemory          0                  0.0
+TcpExtTCPAbortOnTimeout         0                  0.0
+TcpExtTCPAbortOnLinger          0                  0.0
+TcpExtTCPAbortFailed            0                  0.0
+TcpExtTCPMemoryPressures        0                  0.0
+TcpExtTCPMemoryPressuresChrono  0                  0.0
+TcpExtTCPSACKDiscard            0                  0.0
+TcpExtTCPDSACKIgnoredOld        0                  0.0
+TcpExtTCPDSACKIgnoredNoUndo     0                  0.0
+TcpExtTCPSpuriousRTOs           0                  0.0
+TcpExtTCPMD5NotFound            0                  0.0
+TcpExtTCPMD5Unexpected          0                  0.0
+TcpExtTCPMD5Failure             0                  0.0
+TcpExtTCPSackShifted            0                  0.0
+TcpExtTCPSackMerged             0                  0.0
+TcpExtTCPSackShiftFallback      0                  0.0
+TcpExtTCPBacklogDrop            0                  0.0
+TcpExtPFMemallocDrop            0                  0.0
+TcpExtTCPMinTTLDrop             0                  0.0
+TcpExtTCPDeferAcceptDrop        0                  0.0
+TcpExtIPReversePathFilter       0                  0.0
+TcpExtTCPTimeWaitOverflow       0                  0.0
+TcpExtTCPReqQFullDoCookies      0                  0.0
+TcpExtTCPReqQFullDrop           0                  0.0
+TcpExtTCPRetransFail            0                  0.0
+TcpExtTCPRcvCoalesce            479782             0.0
+TcpExtTCPOFOQueue               238                0.0
+TcpExtTCPOFODrop                0                  0.0
+TcpExtTCPOFOMerge               0                  0.0
+TcpExtTCPChallengeACK           0                  0.0
+TcpExtTCPSYNChallenge           0                  0.0
+TcpExtTCPFastOpenActive         0                  0.0
+TcpExtTCPFastOpenActiveFail     0                  0.0
+TcpExtTCPFastOpenPassive        0                  0.0
+TcpExtTCPFastOpenPassiveFail    0                  0.0
+TcpExtTCPFastOpenListenOverflow 0                  0.0
+TcpExtTCPFastOpenCookieReqd     0                  0.0
+TcpExtTCPFastOpenBlackhole      0                  0.0
+TcpExtTCPSpuriousRtxHostQueues  0                  0.0
+TcpExtBusyPollRxPackets         0                  0.0
+TcpExtTCPAutoCorking            0                  0.0
+TcpExtTCPFromZeroWindowAdv      0                  0.0
+TcpExtTCPToZeroWindowAdv        0                  0.0
+TcpExtTCPWantZeroWindowAdv      0                  0.0
+TcpExtTCPSynRetrans             0                  0.0
+TcpExtTCPOrigDataSent           30                 0.0
+TcpExtTCPHystartTrainDetect     0                  0.0
+TcpExtTCPHystartTrainCwnd       0                  0.0
+TcpExtTCPHystartDelayDetect     0                  0.0
+TcpExtTCPHystartDelayCwnd       0                  0.0
+TcpExtTCPACKSkippedSynRecv      0                  0.0
+TcpExtTCPACKSkippedPAWS         0                  0.0
+TcpExtTCPACKSkippedSeq          0                  0.0
+TcpExtTCPACKSkippedFinWait2     0                  0.0
+TcpExtTCPACKSkippedTimeWait     0                  0.0
+TcpExtTCPACKSkippedChallenge    0                  0.0
+TcpExtTCPWinProbe               0                  0.0
+TcpExtTCPKeepAlive              0                  0.0
+TcpExtTCPMTUPFail               0                  0.0
+TcpExtTCPMTUPSuccess            0                  0.0
+TcpExtTCPDelivered              30                 0.0
+TcpExtTCPDeliveredCE            0                  0.0
+TcpExtTCPAckCompressed          27                 0.0
+TcpExtTCPZeroWindowDrop         0                  0.0
+TcpExtTCPRcvQDrop               0                  0.0
+TcpExtTCPWqueueTooBig           0                  0.0
+TcpExtTCPFastOpenPassiveAltKey  0                  0.0
+TcpExtTcpTimeoutRehash          0                  0.0
+TcpExtTcpDuplicateDataRehash    0                  0.0
+TcpExtTCPDSACKRecvSegs          0                  0.0
+TcpExtTCPDSACKIgnoredDubious    0                  0.0
+TcpExtTCPMigrateReqSuccess      0                  0.0
+TcpExtTCPMigrateReqFailure      0                  0.0
+TcpExtTCPPLBRehash              0                  0.0
+TcpExtTCPAORequired             0                  0.0
+TcpExtTCPAOBad                  0                  0.0
+TcpExtTCPAOKeyNotFound          0                  0.0
+TcpExtTCPAOGood                 0                  0.0
+TcpExtTCPAODroppedIcmps         0                  0.0
+IpExtInNoRoutes                 0                  0.0
+IpExtInTruncatedPkts            0                  0.0
+IpExtInMcastPkts                0                  0.0
+IpExtOutMcastPkts               0                  0.0
+IpExtInBcastPkts                0                  0.0
+IpExtOutBcastPkts               0                  0.0
+IpExtInOctets                   2487277639         0.0
+IpExtOutOctets                  5056344            0.0
+IpExtInMcastOctets              0                  0.0
+IpExtOutMcastOctets             0                  0.0
+IpExtInBcastOctets              0                  0.0
+IpExtOutBcastOctets             0                  0.0
+IpExtInCsumErrors               0                  0.0
+IpExtInNoECTPkts                1696860            0.0
+IpExtInECT1Pkts                 0                  0.0
+IpExtInECT0Pkts                 0                  0.0
+IpExtInCEPkts                   0                  0.0
+IpExtReasmOverlaps              0                  0.0
+[exit status 0]
+h2$ ip link set h2-eth0 mtu 1500; ip -br link
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+h2-eth0@if8      UP             6a:6d:ee:ee:ea:5b <BROADCAST,MULTICAST,UP,LOWER_UP> 
+vx100            UNKNOWN        7a:0c:ce:8e:8f:27 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+vx106            UNKNOWN        f6:e8:fe:ea:f2:78 <BROADCAST,MULTICAST,UP,LOWER_UP>
+[exit status 0]
+h1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.100.2
+PING 10.45.100.2 (10.45.100.2) 1422(1450) bytes of data.
+1430 bytes from 10.45.100.2: icmp_seq=1 ttl=64 time=0.078 ms
+1430 bytes from 10.45.100.2: icmp_seq=2 ttl=64 time=0.155 ms
+
+--- 10.45.100.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.078/0.116/0.155/0.038 ms
+[exit status 0]
+h2$ iperf3 -s -1 -J
+h1$ timeout 15 iperf3 -c 10.45.100.2 -t 3 -J --connect-timeout 2000
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.1",
+				"local_port":	38046,
+				"remote_host":	"10.45.100.2",
+				"remote_port":	5201
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:29 GMT",
+			"timesecs":	1795161989
+		},
+		"connecting_to":	{
+			"host":	"10.45.100.2",
+			"port":	5201
+		},
+		"cookie":	"gt7y7t2jwoyansrxlfi3seof3s6sjuyutjlt",
+		"tcp_mss_default":	1398,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.0011,
+					"seconds":	1.0010999441146851,
+					"bytes":	226492416,
+					"bits_per_second":	1809948485.8151445,
+					"retransmits":	49,
+					"snd_cwnd":	360684,
+					"snd_wnd":	29490176,
+					"rtt":	408,
+					"rttvar":	138,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.0011,
+				"seconds":	1.0010999441146851,
+				"bytes":	226492416,
+				"bits_per_second":	1809948485.8151445,
+				"retransmits":	49,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.0011,
+					"end":	2.001131,
+					"seconds":	1.0000309944152832,
+					"bytes":	222822400,
+					"bits_per_second":	1782523951.7123883,
+					"retransmits":	13,
+					"snd_cwnd":	360684,
+					"snd_wnd":	29490176,
+					"rtt":	426,
+					"rttvar":	140,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	1.0011,
+				"end":	2.001131,
+				"seconds":	1.0000309944152832,
+				"bytes":	222822400,
+				"bits_per_second":	1782523951.7123883,
+				"retransmits":	13,
+				"omitted":	false,
+				"sender":	true
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001131,
+					"end":	3.00178,
+					"seconds":	1.0006489753723145,
+					"bytes":	232521728,
+					"bits_per_second":	1858967399.9395039,
+					"retransmits":	5,
+					"snd_cwnd":	360684,
+					"snd_wnd":	29490176,
+					"rtt":	367,
+					"rttvar":	166,
+					"pmtu":	1450,
+					"omitted":	false,
+					"sender":	true
+				}],
+			"sum":	{
+				"start":	2.001131,
+				"end":	3.00178,
+				"seconds":	1.0006489753723145,
+				"bytes":	232521728,
+				"bits_per_second":	1858967399.9395039,
+				"retransmits":	5,
+				"omitted":	false,
+				"sender":	true
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.00178,
+					"seconds":	3.00178,
+					"bytes":	690487296,
+					"bits_per_second":	1840207599.4909687,
+					"retransmits":	67,
+					"max_snd_cwnd":	360684,
+					"max_snd_wnd":	29490176,
+					"max_rtt":	426,
+					"min_rtt":	367,
+					"mean_rtt":	400,
+					"sender":	true
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001879,
+					"seconds":	3.00178,
+					"bytes":	690618368,
+					"bits_per_second":	1840496217.2026253,
+					"sender":	true
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.00178,
+			"seconds":	3.00178,
+			"bytes":	690487296,
+			"bits_per_second":	1840207599.4909687,
+			"retransmits":	67,
+			"sender":	true
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.001879,
+			"seconds":	3.001879,
+			"bytes":	690618368,
+			"bits_per_second":	1840496217.2026253,
+			"sender":	true
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	96.134298762468134,
+			"host_user":	0.071824464604724025,
+			"host_system":	96.0624409995488,
+			"remote_total":	21.180313124583609,
+			"remote_user":	0.0293471019320453,
+			"remote_system":	21.150899400399734
+		},
+		"sender_tcp_congestion":	"cubic",
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1840.496 Mbit/s
+iperf3 server output:
+{
+	"start":	{
+		"connected":	[{
+				"socket":	7,
+				"local_host":	"10.45.100.2",
+				"local_port":	5201,
+				"remote_host":	"10.45.100.1",
+				"remote_port":	38046
+			}],
+		"version":	"iperf 3.16",
+		"system_info":	"Linux 6b630f8b2a5b 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64",
+		"sock_bufsize":	0,
+		"sndbuf_actual":	16384,
+		"rcvbuf_actual":	131072,
+		"timestamp":	{
+			"time":	"Fri, 20 Nov 2026 08:06:29 GMT",
+			"timesecs":	1795161989
+		},
+		"accepted_connection":	{
+			"host":	"10.45.100.1",
+			"port":	38038
+		},
+		"cookie":	"gt7y7t2jwoyansrxlfi3seof3s6sjuyutjlt",
+		"tcp_mss_default":	0,
+		"target_bitrate":	0,
+		"fq_rate":	0,
+		"test_start":	{
+			"protocol":	"TCP",
+			"num_streams":	1,
+			"blksize":	131072,
+			"omit":	0,
+			"duration":	3,
+			"bytes":	0,
+			"blocks":	0,
+			"reverse":	0,
+			"tos":	0,
+			"target_bitrate":	0,
+			"bidir":	0,
+			"fqrate":	0
+		}
+	},
+	"intervals":	[{
+			"streams":	[{
+					"socket":	7,
+					"start":	0,
+					"end":	1.001104,
+					"seconds":	1.00110399723053,
+					"bytes":	226492416,
+					"bits_per_second":	1809941157.9741747,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	0,
+				"end":	1.001104,
+				"seconds":	1.00110399723053,
+				"bytes":	226492416,
+				"bits_per_second":	1809941157.9741747,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	1.001104,
+					"end":	2.001064,
+					"seconds":	0.99996000528335571,
+					"bytes":	230817792,
+					"bits_per_second":	1846616190.8913054,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	1.001104,
+				"end":	2.001064,
+				"seconds":	0.99996000528335571,
+				"bytes":	230817792,
+				"bits_per_second":	1846616190.8913054,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	2.001064,
+					"end":	3.00107,
+					"seconds":	1.0000059604644775,
+					"bytes":	233046016,
+					"bits_per_second":	1864357015.5662353,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	2.001064,
+				"end":	3.00107,
+				"seconds":	1.0000059604644775,
+				"bytes":	233046016,
+				"bits_per_second":	1864357015.5662353,
+				"omitted":	false,
+				"sender":	false
+			}
+		}, {
+			"streams":	[{
+					"socket":	7,
+					"start":	3.00107,
+					"end":	3.001879,
+					"seconds":	0.00080899999011307955,
+					"bytes":	262144,
+					"bits_per_second":	2592276916.7239008,
+					"omitted":	false,
+					"sender":	false
+				}],
+			"sum":	{
+				"start":	3.00107,
+				"end":	3.001879,
+				"seconds":	0.00080899999011307955,
+				"bytes":	262144,
+				"bits_per_second":	2592276916.7239008,
+				"omitted":	false,
+				"sender":	false
+			}
+		}],
+	"end":	{
+		"streams":	[{
+				"sender":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001879,
+					"seconds":	3.001879,
+					"bytes":	0,
+					"bits_per_second":	0,
+					"sender":	false
+				},
+				"receiver":	{
+					"socket":	7,
+					"start":	0,
+					"end":	3.001879,
+					"seconds":	3.001879,
+					"bytes":	690618368,
+					"bits_per_second":	1840496217.2026253,
+					"sender":	false
+				}
+			}],
+		"sum_sent":	{
+			"start":	0,
+			"end":	3.001879,
+			"seconds":	3.001879,
+			"bytes":	0,
+			"bits_per_second":	0,
+			"sender":	false
+		},
+		"sum_received":	{
+			"start":	0,
+			"end":	3.001879,
+			"seconds":	3.001879,
+			"bytes":	690618368,
+			"bits_per_second":	1840496217.2026253,
+			"sender":	false
+		},
+		"cpu_utilization_percent":	{
+			"host_total":	21.180313124583609,
+			"host_user":	0.0293471019320453,
+			"host_system":	21.150899400399734,
+			"remote_total":	0,
+			"remote_user":	0,
+			"remote_system":	0
+		},
+		"receiver_tcp_congestion":	"cubic"
+	}
+}
