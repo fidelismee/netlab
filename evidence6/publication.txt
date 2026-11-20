@@ -1,0 +1,8 @@
+Verified at 2026-11-20T08:17:09.210786+00:00
+URL: https://fidelismee.github.io/netlab/week6/
+Published source commit: 0f7d5bd8bf5b8e0968c998ab66666589f1ced143
+HTTP status: HTTP/2 200 
+Live content matches docs/week6/index.html byte for byte: PASS
+SHA-256: 1e536284ab61ef620c17585cf30e2d2349efe71b0ae88bfd5e0528dcc36f6e49
+Local Edge headless rendering: PASS (Mermaid data-processed=true and SVG present; all five answer sections present)
+Screenshot: evidence6/page-top.png

@@ -143,4 +143,4 @@ This assignment permits Level 3 Open AI assistance. **OpenAI Codex** assisted wi
 ## Submission
 
 Configured repository: <https://github.com/fidelismee/netlab>.
-Expected Week 6 URL: <https://fidelismee.github.io/netlab/week6/>. Publication status is recorded after pushing and checking the live page; an expected URL alone does not establish publication.
+Verified published Week 6 URL: <https://fidelismee.github.io/netlab/week6/>. After pushing, the endpoint returned HTTP 200 and its response matched the generated HTML byte for byte. [Publication verification](evidence6/publication.txt) records the source commit, timestamp and SHA-256. Edge rendered the Mermaid diagram and all five answer sections; [the screenshot](evidence6/page-top.png) shows the top of the page.
