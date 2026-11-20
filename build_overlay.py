@@ -212,6 +212,10 @@ def tenant_commands(spec, hv, tenant):
     ports = vm_ports(spec, hv)
     vni = int(tenant["vni"])
     mtu = int(tenant["mtu"])
+    # Linux rejects a VXLAN MTU larger than the bound underlay minus headers.
+    # In --force mode leave the guests oversized, but keep the tunnel operational
+    # so small packets work and the guest-to-tunnel mismatch can be measured.
+    tunnel_mtu = min(mtu, int(spec["underlay"]["mtu"]) - VXLAN_OVERHEAD)
     bridge, vxlan = f"br{vni}", f"vxlan{vni}"
     cmds += [
         f"ip link add {bridge} type bridge",
@@ -219,7 +223,7 @@ def tenant_commands(spec, hv, tenant):
         f"ip link add {vxlan} type vxlan id {vni} local {addresses[hv]} "
         f"dstport 4789 dev {hv}-eth0",
         f"ip link set {vxlan} master {bridge}",
-        f"ip link set {vxlan} mtu {mtu} up",
+        f"ip link set {vxlan} mtu {tunnel_mtu} up",
     ]
     for vm, where in tenant["vms"]:
         if where == hv:
@@ -293,9 +297,13 @@ def build(spec):
         print(f"VTEP commands on {hv} ({p['hypervisors'][hv]}):")
         for c in cmds:
             print(f"  {c}")
-            out = net.get(hv).cmd(c).strip()
+            stdout, stderr, code = net.get(hv).pexec(["sh", "-c", c])
+            out = (stdout + stderr).strip()
             if out:
                 print(f"      {out}")
+            if code:
+                net.stop()
+                raise RuntimeError(f"VTEP command failed on {hv} (exit {code}): {c}")
             made = re.match(r"ip link add (\S+) type bridge", c)
             if made:
                 net.get(hv).cmd(f"ip link set {made.group(1)} type bridge mcast_snooping 0; ip link set {made.group(1)} multicast off")

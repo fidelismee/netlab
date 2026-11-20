@@ -67,6 +67,13 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(len([c for c in cmds if c.startswith('bridge fdb append')]), 3)
         self.assertFalse(any('dst 10.45.0.4' in c for c in cmds))
 
+    def test_forced_design_keeps_guest_mismatch_and_legal_tunnel(self):
+        spec = load('blackhole.yaml')
+        cmds = tenant_commands(spec, 'cedar', spec['tenants'][0])
+        self.assertIn('ip link set vxlan145 mtu 1450 up', cmds)
+        self.assertIn('ip link set cedar-eth1 mtu 1500 up', cmds)
+        self.assertTrue(check_mtu(spec))  # operational small packets do not validate the plan
+
 
 if __name__ == '__main__':
     unittest.main()
