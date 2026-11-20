@@ -16,13 +16,13 @@
 #   - names: a-z and 0-9, starting with a letter, at most 8 characters.
 #
 # Studio serves interactive workloads; archive provides a separate storage tenant.
-# Initial 1500/1500 MTUs intentionally demonstrate the validation failure.
+# Fix B (selected): provision jumbo underlay end to end; preserve guest MTU.
 
 student_id_last4: "1945"
 
 underlay:
   network: 10.45.0.0/24
-  mtu: 1500
+  mtu: 9000
 
 hypervisors: [cedar, maple, birch]
 

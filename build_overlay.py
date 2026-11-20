@@ -34,10 +34,6 @@ import shlex
 import sys
 
 import yaml
-from mininet.cli import CLI
-from mininet.log import setLogLevel
-from mininet.net import Mininet
-from mininet.nodelib import LinuxBridge
 
 # Turns off TCP and generic segmentation offload on the interfaces named on the command line
 # (what `ethtool -K <if> tso off gso off` does; ethtool isn't in the lab container).
@@ -166,7 +162,7 @@ def check_spec(spec):
 
 
 def check_mtu(spec):
-    """TODO (assignment): every tenant's packets must fit through the tunnel.
+    """Check that every tenant's packets fit through the tunnel.
 
     A tenant's VMs send IP packets up to the tenant's MTU. On the underlay, each one also
     carries VXLAN_OVERHEAD (50) bytes of headers, and the underlay carries IP packets up to its
@@ -177,12 +173,21 @@ def check_mtu(spec):
     before anything is built.
     """
     problems = []
-    # TODO: your code here
+    underlay_mtu = int(spec["underlay"]["mtu"])
+    for tenant in spec["tenants"]:
+        mtu = int(tenant["mtu"])
+        required = mtu + VXLAN_OVERHEAD
+        if required > underlay_mtu:
+            problems.append(
+                f"tenant {tenant['name']}: MTU {mtu} + VXLAN overhead "
+                f"{VXLAN_OVERHEAD} = {required} exceeds underlay MTU "
+                f"{underlay_mtu} by {required - underlay_mtu} bytes"
+            )
     return problems
 
 
 def tenant_commands(spec, hv, tenant):
-    """TODO (assignment): the commands that give one hypervisor one tenant, as a list of strings.
+    """The commands that give one hypervisor one tenant, as a list of strings.
 
     `hv` is a hypervisor's name; `tenant` is one entry of spec["tenants"]. Every hypervisor that
     hosts the tenant needs, in this order:
@@ -201,7 +206,33 @@ def tenant_commands(spec, hv, tenant):
     hypervisor's underlay IP; vm_ports(spec, hv) tells you which port each VM is plugged into.
     """
     cmds = []
-    # TODO: your code here
+    if not any(where == hv for _, where in tenant["vms"]):
+        return cmds
+    addresses = plan(spec)["hypervisors"]
+    ports = vm_ports(spec, hv)
+    vni = int(tenant["vni"])
+    mtu = int(tenant["mtu"])
+    bridge, vxlan = f"br{vni}", f"vxlan{vni}"
+    cmds += [
+        f"ip link add {bridge} type bridge",
+        f"ip link set {bridge} mtu {mtu} up",
+        f"ip link add {vxlan} type vxlan id {vni} local {addresses[hv]} "
+        f"dstport 4789 dev {hv}-eth0",
+        f"ip link set {vxlan} master {bridge}",
+        f"ip link set {vxlan} mtu {mtu} up",
+    ]
+    for vm, where in tenant["vms"]:
+        if where == hv:
+            cmds += [
+                f"ip link set {ports[vm]} master {bridge}",
+                f"ip link set {ports[vm]} mtu {mtu} up",
+            ]
+    peers = {where for _, where in tenant["vms"]} - {hv}
+    for peer in spec["hypervisors"]:
+        if peer in peers:
+            cmds.append(
+                f"bridge fdb append 00:00:00:00:00:00 dev {vxlan} dst {addresses[peer]}"
+            )
     return cmds
 
 
@@ -217,6 +248,10 @@ def all_commands(spec):
 
 
 def build(spec):
+    # Validation and page generation also work on machines without Mininet.
+    from mininet.net import Mininet
+    from mininet.nodelib import LinuxBridge
+
     p = plan(spec)
     underlay = ipaddress.ip_network(spec["underlay"]["network"])
     umtu = int(spec["underlay"]["mtu"])
@@ -293,6 +328,9 @@ if __name__ == "__main__":
     if not any(all_commands(spec).values()):
         sys.exit("tenant_commands() returned no commands: write it first (look for TODO in build_overlay.py).")
 
+    from mininet.cli import CLI
+    from mininet.log import setLogLevel
+
     setLogLevel("info")
     net, _ = build(spec)
     p = plan(spec)
@@ -301,5 +339,7 @@ if __name__ == "__main__":
         vms = ", ".join(f"{vm} {p['vms'][vm]['ip']} on {hv}" for vm, hv in t["vms"])
         print(f"Tenant {t['name']} (VNI {t['vni']}, MTU {t['mtu']}): {vms}")
     print()
-    CLI(net)
-    net.stop()
+    try:
+        CLI(net)
+    finally:
+        net.stop()

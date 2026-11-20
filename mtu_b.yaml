@@ -1,0 +1,46 @@
+# overlay.yaml: your data centre, as data. build_overlay.py builds it; make_page6.py publishes it.
+#
+# Address allocation: suffix 1945, IPv4 block 10.45.0.0/16.
+#
+# How addresses are given out:
+#   - hypervisors get .1, .2, .3 … of the underlay network, in the order listed;
+#   - a tenant's VMs get .10, .11, .12 … of the tenant's network, in the order listed;
+#   - each VM's MAC address is 02:VV:VV:VV:00:XX: the tenant's VNI in the middle, and the last
+#     byte of the VM's address at the end. Two VMs can share an address, never a MAC.
+#
+# Requirements (build_overlay.py checks them):
+#   - at least 3 hypervisors; at least 2 tenants, each with its own VNI;
+#   - two tenants using the SAME network: overlapping addresses, kept apart by VNI;
+#   - every tenant's VMs on at least 2 hypervisors, and one tenant spanning 3;
+#   - at least one hypervisor hosting VMs of two tenants;
+#   - names: a-z and 0-9, starting with a letter, at most 8 characters.
+#
+# Studio serves interactive workloads; archive provides a separate storage tenant.
+# Fix B (selected): provision jumbo underlay end to end; preserve guest MTU.
+
+student_id_last4: "1945"
+
+underlay:
+  network: 10.45.0.0/24
+  mtu: 9000
+
+hypervisors: [cedar, maple, birch]
+
+tenants:
+  - name: studio
+    vni: 145
+    network: 10.45.50.0/24
+    mtu: 1500
+    vms:
+      - [st1, cedar]
+      - [st2, maple]
+      - [st3, birch]
+      - [st4, cedar]
+  - name: archive
+    vni: 245
+    network: 10.45.50.0/24
+    mtu: 1500
+    vms:
+      - [ar1, cedar]
+      - [ar2, maple]
+      - [ar3, birch]
