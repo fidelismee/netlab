@@ -199,3 +199,11 @@ cedar maple birch st1 st2 st3 st4 ar1 ar2 ar3
 Ran 5 tests in 0.149s
 
 OK
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.218s
+
+OK
+Removing generated cache: __pycache__
+Removing generated cache: week6/__pycache__
+Removing generated cache: tests/__pycache__

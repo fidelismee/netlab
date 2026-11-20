@@ -1,0 +1,3074 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay 1945: my data centre, from data</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #1f2937; }
+  h1 { font-size: 1.6rem; margin-bottom: .2rem; } h2 { margin-top: 2.2rem; border-bottom: 1px solid #e5e7eb; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin-bottom: 1rem; } th, td { border-bottom: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; }
+  pre { background: #111827; color: #f3f4f6; padding: .8rem; border-radius: .4rem; overflow-x: auto; font-size: .82rem; }
+  pre.mermaid { background: none; color: inherit; } pre.missing { background: #fef2f2; color: #991b1b; }
+  .meta, .file { color: #6b7280; font-size: .85rem; } code { font-size: .88em; }
+</style>
+</head>
+<body>
+<p class="meta"><a href="../">← Week 2: my network, built from data</a> · <a href="../week3/">Week 3: routed, from data</a></p>
+<h1>My data centre overlay, from data</h1>
+<p class="meta">Student ID ending 1945 · generated from <code>overlay.yaml</code> by <code>make_page6.py</code> on 2026-11-20</p>
+<p id="summary">3 hypervisors and 2 tenants (7 VMs) on <code>10.45.0.0/16</code>, joined by VXLAN.
+Every tenant's MTU was checked against the underlay before anything was built.</p>
+<p>Repository: <a id="repository" href="https://github.com/fidelismee/netlab">https://github.com/fidelismee/netlab</a></p>
+
+<h2>The design</h2>
+<h3>Hypervisors and the underlay</h3>
+<section id="hypervisors"><p>Underlay <code>10.45.0.0/24</code>, MTU 9000.</p><table><tr><th>Hypervisor</th><th>Underlay address</th><th>VMs</th></tr><tr><td>cedar</td><td><code>10.45.0.1</code></td><td>st1 (studio), st4 (studio), ar1 (archive)</td></tr><tr><td>maple</td><td><code>10.45.0.2</code></td><td>st2 (studio), ar2 (archive)</td></tr><tr><td>birch</td><td><code>10.45.0.3</code></td><td>st3 (studio), ar3 (archive)</td></tr></table></section>
+<section id="tenants"><h3>studio: VNI 145, <code>10.45.50.0/24</code>, MTU 1500</h3><table><tr><th>VM</th><th>On</th><th>Address</th><th>MAC</th></tr><tr><td>st1</td><td>cedar</td><td><code>10.45.50.10</code></td><td><code>02:00:00:91:00:0a</code></td></tr><tr><td>st2</td><td>maple</td><td><code>10.45.50.11</code></td><td><code>02:00:00:91:00:0b</code></td></tr><tr><td>st3</td><td>birch</td><td><code>10.45.50.12</code></td><td><code>02:00:00:91:00:0c</code></td></tr><tr><td>st4</td><td>cedar</td><td><code>10.45.50.13</code></td><td><code>02:00:00:91:00:0d</code></td></tr></table>
+<h3>archive: VNI 245, <code>10.45.50.0/24</code>, MTU 1500</h3><table><tr><th>VM</th><th>On</th><th>Address</th><th>MAC</th></tr><tr><td>ar1</td><td>cedar</td><td><code>10.45.50.10</code></td><td><code>02:00:00:f5:00:0a</code></td></tr><tr><td>ar2</td><td>maple</td><td><code>10.45.50.11</code></td><td><code>02:00:00:f5:00:0b</code></td></tr><tr><td>ar3</td><td>birch</td><td><code>10.45.50.12</code></td><td><code>02:00:00:f5:00:0c</code></td></tr></table></section>
+<h3>Diagram</h3>
+<pre class="mermaid" id="diagram">graph TB
+  s1[[underlay switch s1]]
+  cedar[&quot;cedar&lt;br&gt;10.45.0.1&quot;] --- s1
+  maple[&quot;maple&lt;br&gt;10.45.0.2&quot;] --- s1
+  birch[&quot;birch&lt;br&gt;10.45.0.3&quot;] --- s1
+  st1(&quot;st1&lt;br&gt;10.45.50.10&lt;br&gt;studio · VNI 145&quot;) --- cedar
+  st2(&quot;st2&lt;br&gt;10.45.50.11&lt;br&gt;studio · VNI 145&quot;) --- maple
+  st3(&quot;st3&lt;br&gt;10.45.50.12&lt;br&gt;studio · VNI 145&quot;) --- birch
+  st4(&quot;st4&lt;br&gt;10.45.50.13&lt;br&gt;studio · VNI 145&quot;) --- cedar
+  ar1(&quot;ar1&lt;br&gt;10.45.50.10&lt;br&gt;archive · VNI 245&quot;) --- cedar
+  ar2(&quot;ar2&lt;br&gt;10.45.50.11&lt;br&gt;archive · VNI 245&quot;) --- maple
+  ar3(&quot;ar3&lt;br&gt;10.45.50.12&lt;br&gt;archive · VNI 245&quot;) --- birch</pre>
+
+<h2>VTEP commands, as built</h2>
+<p>What <code>tenant_commands()</code> ran on each hypervisor.</p>
+<section id="commands"><h3>cedar</h3>
+<pre id="commands-cedar">ip link add br145 type bridge
+ip link set br145 mtu 1500 up
+ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+ip link set vxlan145 master br145
+ip link set vxlan145 mtu 1500 up
+ip link set cedar-eth1 master br145
+ip link set cedar-eth1 mtu 1500 up
+ip link set cedar-eth2 master br145
+ip link set cedar-eth2 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+ip link add br245 type bridge
+ip link set br245 mtu 1500 up
+ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+ip link set vxlan245 master br245
+ip link set vxlan245 mtu 1500 up
+ip link set cedar-eth3 master br245
+ip link set cedar-eth3 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3</pre>
+<h3>maple</h3>
+<pre id="commands-maple">ip link add br145 type bridge
+ip link set br145 mtu 1500 up
+ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+ip link set vxlan145 master br145
+ip link set vxlan145 mtu 1500 up
+ip link set maple-eth1 master br145
+ip link set maple-eth1 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+ip link add br245 type bridge
+ip link set br245 mtu 1500 up
+ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+ip link set vxlan245 master br245
+ip link set vxlan245 mtu 1500 up
+ip link set maple-eth2 master br245
+ip link set maple-eth2 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3</pre>
+<h3>birch</h3>
+<pre id="commands-birch">ip link add br145 type bridge
+ip link set br145 mtu 1500 up
+ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+ip link set vxlan145 master br145
+ip link set vxlan145 mtu 1500 up
+ip link set birch-eth1 master br145
+ip link set birch-eth1 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+ip link add br245 type bridge
+ip link set br245 mtu 1500 up
+ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+ip link set vxlan245 master br245
+ip link set vxlan245 mtu 1500 up
+ip link set birch-eth2 master br245
+ip link set birch-eth2 mtu 1500 up
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2</pre></section>
+
+<h2>Evidence from the running overlay</h2>
+<section id="evidence"><h3>check_mtu() refusing the black-hole design</h3>
+<p class="file">evidence6/check.txt</p>
+<pre id="evidence-check">PROBLEM: tenant studio: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes
+PROBLEM: tenant archive: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes
+Fix the design and try again: nothing was built.</pre>
+<h3>Flood and learn: the VTEP table before, the flooded broadcast, the table after</h3>
+<p class="file">evidence6/flood.txt</p>
+<pre id="evidence-flood">Fresh network: overlay.yaml; force=False; 2026-11-20T08:07:15.357801+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+76:00:de:6e:cf:3f dev cedar-eth1 vlan 1 master br145 permanent
+76:00:de:6e:cf:3f dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 vlan 1 master br145 permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+22:5b:09:2f:13:0b dev cedar-eth3 vlan 1 master br245 permanent
+22:5b:09:2f:13:0b dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 vlan 1 master br145 permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+16:12:5a:f9:24:13 dev vxlan245 vlan 1 master br245 permanent
+16:12:5a:f9:24:13 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+66:33:19:76:43:c9 dev maple-eth1 vlan 1 master br145 permanent
+66:33:19:76:43:c9 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 vlan 1 master br245 permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+d6:46:1d:16:72:bb dev vxlan145 vlan 1 master br145 permanent
+d6:46:1d:16:72:bb dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+32:b7:fa:70:17:63 dev vxlan245 vlan 1 master br245 permanent
+32:b7:fa:70:17:63 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+96:02:e2:33:ed:5d dev birch-eth1 vlan 1 master br145 permanent
+96:02:e2:33:ed:5d dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+6a:40:d9:73:6d:ce dev birch-eth2 vlan 1 master br245 permanent
+6a:40:d9:73:6d:ce dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+22:e3:bc:6b:c1:18 dev vxlan145 vlan 1 master br145 permanent
+22:e3:bc:6b:c1:18 dev vxlan145 master br145 permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+a2:26:bf:07:23:2a dev vxlan245 vlan 1 master br245 permanent
+a2:26:bf:07:23:2a dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]
+birch$ timeout 8 tcpdump -U -l -n -e -vv -i birch-eth0 udp port 4789
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.223 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.141 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.141/0.182/0.223/0.041 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on birch-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+08:07:20.487409 9a:4b:a5:33:cf:d9 &gt; f6:03:db:7b:62:f0, ethertype IPv4 (0x0800), length 92: (tos 0x0, ttl 64, id 2320, offset 0, flags [none], proto UDP (17), length 78)
+    10.45.0.1.55580 &gt; 10.45.0.3.4789: [bad udp cksum 0x14a9 -&gt; 0xd298!] VXLAN, flags [I] (0x08), vni 145
+02:00:00:91:00:0a &gt; ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 42: Ethernet (len 6), IPv4 (len 4), Request who-has 10.45.50.11 tell 10.45.50.10, length 28
+
+1 packet captured
+1 packet received by filter
+0 packets dropped by kernel
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+02:00:00:91:00:0a dev cedar-eth1 master br145 
+76:00:de:6e:cf:3f dev cedar-eth1 vlan 1 master br145 permanent
+76:00:de:6e:cf:3f dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 vlan 1 master br145 permanent
+3a:3f:c3:f6:78:e0 dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+22:5b:09:2f:13:0b dev cedar-eth3 vlan 1 master br245 permanent
+22:5b:09:2f:13:0b dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0b dev vxlan145 master br145 
+b2:3d:4f:34:0f:f0 dev vxlan145 vlan 1 master br145 permanent
+b2:3d:4f:34:0f:f0 dev vxlan145 master br145 permanent
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+16:12:5a:f9:24:13 dev vxlan245 vlan 1 master br245 permanent
+16:12:5a:f9:24:13 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+02:00:00:91:00:0b dev maple-eth1 master br145 
+66:33:19:76:43:c9 dev maple-eth1 vlan 1 master br145 permanent
+66:33:19:76:43:c9 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 vlan 1 master br245 permanent
+72:b7:a0:fd:87:e4 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0a dev vxlan145 master br145 
+d6:46:1d:16:72:bb dev vxlan145 vlan 1 master br145 permanent
+d6:46:1d:16:72:bb dev vxlan145 master br145 permanent
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+32:b7:fa:70:17:63 dev vxlan245 vlan 1 master br245 permanent
+32:b7:fa:70:17:63 dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+96:02:e2:33:ed:5d dev birch-eth1 vlan 1 master br145 permanent
+96:02:e2:33:ed:5d dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+6a:40:d9:73:6d:ce dev birch-eth2 vlan 1 master br245 permanent
+6a:40:d9:73:6d:ce dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0a dev vxlan145 master br145 
+22:e3:bc:6b:c1:18 dev vxlan145 vlan 1 master br145 permanent
+22:e3:bc:6b:c1:18 dev vxlan145 master br145 permanent
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+a2:26:bf:07:23:2a dev vxlan245 vlan 1 master br245 permanent
+a2:26:bf:07:23:2a dev vxlan245 master br245 permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]
+Repeat after learning: third VTEP should receive no unicast conversation.
+birch$ timeout 8 tcpdump -U -l -n -e -vv -i birch-eth0 udp port 4789
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.090 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.121 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.090/0.105/0.121/0.015 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on birch-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel</pre>
+<h3>Two tenants, one address: who answers</h3>
+<p class="file">evidence6/isolation.txt</p>
+<pre id="evidence-isolation">Fresh network: overlay.yaml; force=False; 2026-11-20T08:07:21.781949+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+ar2 has the same IP as st2; capture on ar2 while studio communicates.
+ar2$ timeout 8 tcpdump -U -l -n -e -vv -i ar2-eth0 arp or icmp
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.217 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.165 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.165/0.191/0.217/0.026 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on ar2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+st2$ timeout 8 tcpdump -U -l -n -e -vv -i st2-eth0 arp or icmp
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.172 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.103 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.103/0.137/0.172/0.034 ms
+[exit status 0]
+CAPTURE:
+tcpdump: listening on st2-eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.142 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.085 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 107ms
+rtt min/avg/max/mdev = 0.085/0.113/0.142/0.028 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.148 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.091 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.091/0.119/0.148/0.028 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.104 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.079 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.079/0.091/0.104/0.012 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.075 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.156 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.075/0.115/0.156/0.040 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.165 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.176 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.165/0.170/0.176/0.005 ms
+[exit status 0]
+st2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.130 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.116 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.116/0.123/0.130/0.007 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.162 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.056/0.109/0.162/0.053 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.075 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.196 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.075/0.135/0.196/0.060 ms
+[exit status 0]
+st3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.13
+PING 10.45.50.13 (10.45.50.13) 56(84) bytes of data.
+64 bytes from 10.45.50.13: icmp_seq=1 ttl=64 time=0.129 ms
+64 bytes from 10.45.50.13: icmp_seq=2 ttl=64 time=0.180 ms
+
+--- 10.45.50.13 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.129/0.154/0.180/0.025 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.028 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.107 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.028/0.067/0.107/0.039 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.067 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.170 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.067/0.118/0.170/0.051 ms
+[exit status 0]
+st4$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.067 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.176 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 100ms
+rtt min/avg/max/mdev = 0.067/0.121/0.176/0.054 ms
+[exit status 0]
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.070 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.115 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.070/0.092/0.115/0.022 ms
+[exit status 0]
+ar1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.133 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.127 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.127/0.130/0.133/0.003 ms
+[exit status 0]
+ar2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.057 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.138 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.057/0.097/0.138/0.040 ms
+[exit status 0]
+ar2$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.12
+PING 10.45.50.12 (10.45.50.12) 56(84) bytes of data.
+64 bytes from 10.45.50.12: icmp_seq=1 ttl=64 time=0.134 ms
+64 bytes from 10.45.50.12: icmp_seq=2 ttl=64 time=0.159 ms
+
+--- 10.45.50.12 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.134/0.146/0.159/0.012 ms
+[exit status 0]
+ar3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.10
+PING 10.45.50.10 (10.45.50.10) 56(84) bytes of data.
+64 bytes from 10.45.50.10: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.10: icmp_seq=2 ttl=64 time=0.173 ms
+
+--- 10.45.50.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.056/0.114/0.173/0.058 ms
+[exit status 0]
+ar3$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.056 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.212 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.056/0.134/0.212/0.078 ms
+[exit status 0]
+PASS: 18 directed within-tenant VM pairs
+st1$ ip -br address; ip link show st1-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st1-eth0@if3     UP             10.45.50.10/24 
+2: st1-eth0@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev st1-eth0 lladdr 02:00:00:91:00:0b REACHABLE 
+10.45.50.12 dev st1-eth0 lladdr 02:00:00:91:00:0c REACHABLE 
+10.45.50.13 dev st1-eth0 lladdr 02:00:00:91:00:0d REACHABLE
+[exit status 0]
+st2$ ip -br address; ip link show st2-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st2-eth0@if3     UP             10.45.50.11/24 
+2: st2-eth0@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.10 dev st2-eth0 lladdr 02:00:00:91:00:0a DELAY 
+10.45.50.13 dev st2-eth0 lladdr 02:00:00:91:00:0d REACHABLE 
+10.45.50.12 dev st2-eth0 lladdr 02:00:00:91:00:0c REACHABLE
+[exit status 0]
+st3$ ip -br address; ip link show st3-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st3-eth0@if3     UP             10.45.50.12/24 
+2: st3-eth0@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0c brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.13 dev st3-eth0 lladdr 02:00:00:91:00:0d REACHABLE 
+10.45.50.11 dev st3-eth0 lladdr 02:00:00:91:00:0b DELAY 
+10.45.50.10 dev st3-eth0 lladdr 02:00:00:91:00:0a DELAY
+[exit status 0]
+st4$ ip -br address; ip link show st4-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+st4-eth0@if4     UP             10.45.50.13/24 
+2: st4-eth0@if4: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:91:00:0d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.12 dev st4-eth0 lladdr 02:00:00:91:00:0c DELAY 
+10.45.50.10 dev st4-eth0 lladdr 02:00:00:91:00:0a DELAY 
+10.45.50.11 dev st4-eth0 lladdr 02:00:00:91:00:0b DELAY
+[exit status 0]
+ar1$ ip -br address; ip link show ar1-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar1-eth0@if5     UP             10.45.50.10/24 
+2: ar1-eth0@if5: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev ar1-eth0 lladdr 02:00:00:f5:00:0b REACHABLE 
+10.45.50.12 dev ar1-eth0 lladdr 02:00:00:f5:00:0c REACHABLE
+[exit status 0]
+ar2$ ip -br address; ip link show ar2-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar2-eth0@if4     UP             10.45.50.11/24 
+2: ar2-eth0@if4: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.12 dev ar2-eth0 lladdr 02:00:00:f5:00:0c REACHABLE 
+10.45.50.10 dev ar2-eth0 lladdr 02:00:00:f5:00:0a DELAY
+[exit status 0]
+ar3$ ip -br address; ip link show ar3-eth0; ip neigh show
+lo               UNKNOWN        127.0.0.1/8 
+ar3-eth0@if4     UP             10.45.50.12/24 
+2: ar3-eth0@if4: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 02:00:00:f5:00:0c brd ff:ff:ff:ff:ff:ff link-netnsid 0
+10.45.50.11 dev ar3-eth0 lladdr 02:00:00:f5:00:0b DELAY 
+10.45.50.10 dev ar3-eth0 lladdr 02:00:00:f5:00:0a DELAY
+[exit status 0]
+cedar$ bridge fdb show
+01:00:5e:00:00:01 dev cedar-eth0 self permanent
+02:00:00:91:00:0a dev cedar-eth1 master br145 
+3e:eb:23:c6:8a:ad dev cedar-eth1 vlan 1 master br145 permanent
+3e:eb:23:c6:8a:ad dev cedar-eth1 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth1 self permanent
+02:00:00:91:00:0d dev cedar-eth2 master br145 
+42:98:c5:d8:cd:2f dev cedar-eth2 vlan 1 master br145 permanent
+42:98:c5:d8:cd:2f dev cedar-eth2 master br145 permanent
+01:00:5e:00:00:01 dev cedar-eth2 self permanent
+02:00:00:f5:00:0a dev cedar-eth3 master br245 
+b2:97:98:c7:a1:f7 dev cedar-eth3 vlan 1 master br245 permanent
+b2:97:98:c7:a1:f7 dev cedar-eth3 master br245 permanent
+01:00:5e:00:00:01 dev cedar-eth3 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0c dev vxlan145 master br145 
+02:00:00:91:00:0b dev vxlan145 master br145 
+06:88:3e:d2:1b:99 dev vxlan145 vlan 1 master br145 permanent
+06:88:3e:d2:1b:99 dev vxlan145 master br145 permanent
+02:00:00:91:00:0c dev vxlan145 dst 10.45.0.3 self 
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0c dev vxlan245 master br245 
+02:00:00:f5:00:0b dev vxlan245 master br245 
+ae:3b:bc:cf:10:5b dev vxlan245 vlan 1 master br245 permanent
+ae:3b:bc:cf:10:5b dev vxlan245 master br245 permanent
+02:00:00:f5:00:0c dev vxlan245 dst 10.45.0.3 self 
+02:00:00:f5:00:0b dev vxlan245 dst 10.45.0.2 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+maple$ bridge fdb show
+01:00:5e:00:00:01 dev maple-eth0 self permanent
+02:00:00:91:00:0b dev maple-eth1 master br145 
+12:b6:9f:94:89:30 dev maple-eth1 vlan 1 master br145 permanent
+12:b6:9f:94:89:30 dev maple-eth1 master br145 permanent
+01:00:5e:00:00:01 dev maple-eth1 self permanent
+02:00:00:f5:00:0b dev maple-eth2 master br245 
+72:79:1f:5b:06:14 dev maple-eth2 vlan 1 master br245 permanent
+72:79:1f:5b:06:14 dev maple-eth2 master br245 permanent
+01:00:5e:00:00:01 dev maple-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0d dev vxlan145 master br145 
+02:00:00:91:00:0c dev vxlan145 master br145 
+02:00:00:91:00:0a dev vxlan145 master br145 
+22:f9:6e:7c:ce:ce dev vxlan145 vlan 1 master br145 permanent
+22:f9:6e:7c:ce:ce dev vxlan145 master br145 permanent
+02:00:00:91:00:0d dev vxlan145 dst 10.45.0.1 self 
+02:00:00:91:00:0c dev vxlan145 dst 10.45.0.3 self 
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0c dev vxlan245 master br245 
+02:00:00:f5:00:0a dev vxlan245 master br245 
+1a:5a:e2:14:19:a1 dev vxlan245 vlan 1 master br245 permanent
+1a:5a:e2:14:19:a1 dev vxlan245 master br245 permanent
+02:00:00:f5:00:0c dev vxlan245 dst 10.45.0.3 self 
+02:00:00:f5:00:0a dev vxlan245 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3 self permanent
+[exit status 0]
+birch$ bridge fdb show
+01:00:5e:00:00:01 dev birch-eth0 self permanent
+02:00:00:91:00:0c dev birch-eth1 master br145 
+a2:51:38:77:b3:29 dev birch-eth1 vlan 1 master br145 permanent
+a2:51:38:77:b3:29 dev birch-eth1 master br145 permanent
+01:00:5e:00:00:01 dev birch-eth1 self permanent
+02:00:00:f5:00:0c dev birch-eth2 master br245 
+e6:d5:82:c6:f5:1f dev birch-eth2 vlan 1 master br245 permanent
+e6:d5:82:c6:f5:1f dev birch-eth2 master br245 permanent
+01:00:5e:00:00:01 dev birch-eth2 self permanent
+33:33:00:00:00:01 dev br145 self permanent
+01:00:5e:00:00:01 dev br145 self permanent
+02:00:00:91:00:0d dev vxlan145 master br145 
+02:00:00:91:00:0b dev vxlan145 master br145 
+02:00:00:91:00:0a dev vxlan145 master br145 
+ea:92:5a:e9:7d:92 dev vxlan145 vlan 1 master br145 permanent
+ea:92:5a:e9:7d:92 dev vxlan145 master br145 permanent
+02:00:00:91:00:0d dev vxlan145 dst 10.45.0.1 self 
+02:00:00:91:00:0b dev vxlan145 dst 10.45.0.2 self 
+02:00:00:91:00:0a dev vxlan145 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2 self permanent
+33:33:00:00:00:01 dev br245 self permanent
+01:00:5e:00:00:01 dev br245 self permanent
+02:00:00:f5:00:0b dev vxlan245 master br245 
+02:00:00:f5:00:0a dev vxlan245 master br245 
+92:f4:86:6f:3a:33 dev vxlan245 vlan 1 master br245 permanent
+92:f4:86:6f:3a:33 dev vxlan245 master br245 permanent
+02:00:00:f5:00:0b dev vxlan245 dst 10.45.0.2 self 
+02:00:00:f5:00:0a dev vxlan245 dst 10.45.0.1 self 
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1 self permanent
+00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2 self permanent
+[exit status 0]</pre>
+<h3>The black hole: tenant MTU 1500 on a 1500-byte underlay</h3>
+<p class="file">evidence6/blackhole.txt</p>
+<pre id="evidence-blackhole">Fresh network: blackhole.yaml; force=True; 2026-11-20T08:09:51.264761+00:00
+WARNING --force: tenant studio: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes; tenant archive: MTU 1500 + VXLAN overhead 50 = 1550 exceeds underlay MTU 1500 by 50 bytes
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ ip -s -s link show vxlan145; ip -s -s link show cedar-eth0
+7: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 72:85:ed:23:ee:ec brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+             0       0      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+             0       0      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       0 
+2: cedar-eth0@if2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 9e:b3:77:df:f2:44 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+           344       4      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+            90       1      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2
+[exit status 0]
+maple$ ip -s -s link show maple-eth0; nstat -az
+2: maple-eth0@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether a6:11:9a:91:fc:ff brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+           594       7      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+            90       1      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2 
+#kernel
+IpInReceives                    2                  0.0
+IpInHdrErrors                   0                  0.0
+IpInAddrErrors                  0                  0.0
+IpForwDatagrams                 0                  0.0
+IpInUnknownProtos               0                  0.0
+IpInDiscards                    0                  0.0
+IpInDelivers                    0                  0.0
+IpOutRequests                   0                  0.0
+IpOutDiscards                   0                  0.0
+IpOutNoRoutes                   0                  0.0
+IpReasmTimeout                  0                  0.0
+IpReasmReqds                    0                  0.0
+IpReasmOKs                      0                  0.0
+IpReasmFails                    0                  0.0
+IpFragOKs                       0                  0.0
+IpFragFails                     0                  0.0
+IpFragCreates                   0                  0.0
+IpOutTransmits                  0                  0.0
+IcmpInMsgs                      0                  0.0
+IcmpInErrors                    0                  0.0
+IcmpInCsumErrors                0                  0.0
+IcmpInDestUnreachs              0                  0.0
+IcmpInTimeExcds                 0                  0.0
+IcmpInParmProbs                 0                  0.0
+IcmpInSrcQuenchs                0                  0.0
+IcmpInRedirects                 0                  0.0
+IcmpInEchos                     0                  0.0
+IcmpInEchoReps                  0                  0.0
+IcmpInTimestamps                0                  0.0
+IcmpInTimestampReps             0                  0.0
+IcmpInAddrMasks                 0                  0.0
+IcmpInAddrMaskReps              0                  0.0
+IcmpOutMsgs                     0                  0.0
+IcmpOutErrors                   0                  0.0
+IcmpOutRateLimitGlobal          0                  0.0
+IcmpOutRateLimitHost            0                  0.0
+IcmpOutDestUnreachs             0                  0.0
+IcmpOutTimeExcds                0                  0.0
+IcmpOutParmProbs                0                  0.0
+IcmpOutSrcQuenchs               0                  0.0
+IcmpOutRedirects                0                  0.0
+IcmpOutEchos                    0                  0.0
+IcmpOutEchoReps                 0                  0.0
+IcmpOutTimestamps               0                  0.0
+IcmpOutTimestampReps            0                  0.0
+IcmpOutAddrMasks                0                  0.0
+IcmpOutAddrMaskReps             0                  0.0
+TcpActiveOpens                  0                  0.0
+TcpPassiveOpens                 0                  0.0
+TcpAttemptFails                 0                  0.0
+TcpEstabResets                  0                  0.0
+TcpInSegs                       0                  0.0
+TcpOutSegs                      0                  0.0
+TcpRetransSegs                  0                  0.0
+TcpInErrs                       0                  0.0
+TcpOutRsts                      0                  0.0
+TcpInCsumErrors                 0                  0.0
+UdpInDatagrams                  0                  0.0
+UdpNoPorts                      0                  0.0
+UdpInErrors                     0                  0.0
+UdpOutDatagrams                 0                  0.0
+UdpRcvbufErrors                 0                  0.0
+UdpSndbufErrors                 0                  0.0
+UdpInCsumErrors                 0                  0.0
+UdpIgnoredMulti                 0                  0.0
+UdpMemErrors                    0                  0.0
+UdpLiteInDatagrams              0                  0.0
+UdpLiteNoPorts                  0                  0.0
+UdpLiteInErrors                 0                  0.0
+UdpLiteOutDatagrams             0                  0.0
+UdpLiteRcvbufErrors             0                  0.0
+UdpLiteSndbufErrors             0                  0.0
+UdpLiteInCsumErrors             0                  0.0
+UdpLiteIgnoredMulti             0                  0.0
+UdpLiteMemErrors                0                  0.0
+Ip6InReceives                   8                  0.0
+Ip6InHdrErrors                  0                  0.0
+Ip6InTooBigErrors               0                  0.0
+Ip6InNoRoutes                   0                  0.0
+Ip6InAddrErrors                 0                  0.0
+Ip6InUnknownProtos              0                  0.0
+Ip6InTruncatedPkts              0                  0.0
+Ip6InDiscards                   4                  0.0
+Ip6InDelivers                   0                  0.0
+Ip6OutForwDatagrams             0                  0.0
+Ip6OutRequests                  4                  0.0
+Ip6OutDiscards                  0                  0.0
+Ip6OutNoRoutes                  0                  0.0
+Ip6ReasmTimeout                 0                  0.0
+Ip6ReasmReqds                   0                  0.0
+Ip6ReasmOKs                     0                  0.0
+Ip6ReasmFails                   0                  0.0
+Ip6FragOKs                      0                  0.0
+Ip6FragFails                    0                  0.0
+Ip6FragCreates                  0                  0.0
+Ip6InMcastPkts                  4                  0.0
+Ip6OutMcastPkts                 4                  0.0
+Ip6InOctets                     640                0.0
+Ip6OutOctets                    300                0.0
+Ip6InMcastOctets                300                0.0
+Ip6OutMcastOctets               300                0.0
+Ip6InBcastOctets                0                  0.0
+Ip6OutBcastOctets               0                  0.0
+Ip6InNoECTPkts                  4                  0.0
+Ip6InECT1Pkts                   0                  0.0
+Ip6InECT0Pkts                   0                  0.0
+Ip6InCEPkts                     0                  0.0
+Ip6OutTransmits                 4                  0.0
+Icmp6InMsgs                     0                  0.0
+Icmp6InErrors                   0                  0.0
+Icmp6OutMsgs                    4                  0.0
+Icmp6OutErrors                  0                  0.0
+Icmp6InCsumErrors               0                  0.0
+Icmp6OutRateLimitHost           0                  0.0
+Icmp6InDestUnreachs             0                  0.0
+Icmp6InPktTooBigs               0                  0.0
+Icmp6InTimeExcds                0                  0.0
+Icmp6InParmProblems             0                  0.0
+Icmp6InEchos                    0                  0.0
+Icmp6InEchoReplies              0                  0.0
+Icmp6InGroupMembQueries         0                  0.0
+Icmp6InGroupMembResponses       0                  0.0
+Icmp6InGroupMembReductions      0                  0.0
+Icmp6InRouterSolicits           0                  0.0
+Icmp6InRouterAdvertisements     0                  0.0
+Icmp6InNeighborSolicits         0                  0.0
+Icmp6InNeighborAdvertisements   0                  0.0
+Icmp6InRedirects                0                  0.0
+Icmp6InMLDv2Reports             0                  0.0
+Icmp6OutDestUnreachs            0                  0.0
+Icmp6OutPktTooBigs              0                  0.0
+Icmp6OutTimeExcds               0                  0.0
+Icmp6OutParmProblems            0                  0.0
+Icmp6OutEchos                   0                  0.0
+Icmp6OutEchoReplies             0                  0.0
+Icmp6OutGroupMembQueries        0                  0.0
+Icmp6OutGroupMembResponses      0                  0.0
+Icmp6OutGroupMembReductions     0                  0.0
+Icmp6OutRouterSolicits          0                  0.0
+Icmp6OutRouterAdvertisements    0                  0.0
+Icmp6OutNeighborSolicits        1                  0.0
+Icmp6OutNeighborAdvertisements  0                  0.0
+Icmp6OutRedirects               0                  0.0
+Icmp6OutMLDv2Reports            3                  0.0
+Icmp6OutType135                 1                  0.0
+Icmp6OutType143                 3                  0.0
+Udp6InDatagrams                 0                  0.0
+Udp6NoPorts                     0                  0.0
+Udp6InErrors                    0                  0.0
+Udp6OutDatagrams                0                  0.0
+Udp6RcvbufErrors                0                  0.0
+Udp6SndbufErrors                0                  0.0
+Udp6InCsumErrors                0                  0.0
+Udp6IgnoredMulti                0                  0.0
+Udp6MemErrors                   0                  0.0
+UdpLite6InDatagrams             0                  0.0
+UdpLite6NoPorts                 0                  0.0
+UdpLite6InErrors                0                  0.0
+UdpLite6OutDatagrams            0                  0.0
+UdpLite6RcvbufErrors            0                  0.0
+UdpLite6SndbufErrors            0                  0.0
+UdpLite6InCsumErrors            0                  0.0
+UdpLite6MemErrors               0                  0.0
+TcpExtSyncookiesSent            0                  0.0
+TcpExtSyncookiesRecv            0                  0.0
+TcpExtSyncookiesFailed          0                  0.0
+TcpExtEmbryonicRsts             0                  0.0
+TcpExtPruneCalled               0                  0.0
+TcpExtRcvPruned                 0                  0.0
+TcpExtOfoPruned                 0                  0.0
+TcpExtOutOfWindowIcmps          0                  0.0
+TcpExtLockDroppedIcmps          0                  0.0
+TcpExtArpFilter                 0                  0.0
+TcpExtTW                        0                  0.0
+TcpExtTWRecycled                0                  0.0
+TcpExtTWKilled                  0                  0.0
+TcpExtPAWSActive                0                  0.0
+TcpExtPAWSEstab                 0                  0.0
+TcpExtBeyondWindow              0                  0.0
+TcpExtTSEcrRejected             0                  0.0
+TcpExtPAWSOldAck                0                  0.0
+TcpExtPAWSTimewait              0                  0.0
+TcpExtDelayedACKs               0                  0.0
+TcpExtDelayedACKLocked          0                  0.0
+TcpExtDelayedACKLost            0                  0.0
+TcpExtListenOverflows           0                  0.0
+TcpExtListenDrops               0                  0.0
+TcpExtTCPHPHits                 0                  0.0
+TcpExtTCPPureAcks               0                  0.0
+TcpExtTCPHPAcks                 0                  0.0
+TcpExtTCPRenoRecovery           0                  0.0
+TcpExtTCPSackRecovery           0                  0.0
+TcpExtTCPSACKReneging           0                  0.0
+TcpExtTCPSACKReorder            0                  0.0
+TcpExtTCPRenoReorder            0                  0.0
+TcpExtTCPTSReorder              0                  0.0
+TcpExtTCPFullUndo               0                  0.0
+TcpExtTCPPartialUndo            0                  0.0
+TcpExtTCPDSACKUndo              0                  0.0
+TcpExtTCPLossUndo               0                  0.0
+TcpExtTCPLostRetransmit         0                  0.0
+TcpExtTCPRenoFailures           0                  0.0
+TcpExtTCPSackFailures           0                  0.0
+TcpExtTCPLossFailures           0                  0.0
+TcpExtTCPFastRetrans            0                  0.0
+TcpExtTCPSlowStartRetrans       0                  0.0
+TcpExtTCPTimeouts               0                  0.0
+TcpExtTCPLossProbes             0                  0.0
+TcpExtTCPLossProbeRecovery      0                  0.0
+TcpExtTCPRenoRecoveryFail       0                  0.0
+TcpExtTCPSackRecoveryFail       0                  0.0
+TcpExtTCPRcvCollapsed           0                  0.0
+TcpExtTCPBacklogCoalesce        0                  0.0
+TcpExtTCPDSACKOldSent           0                  0.0
+TcpExtTCPDSACKOfoSent           0                  0.0
+TcpExtTCPDSACKRecv              0                  0.0
+TcpExtTCPDSACKOfoRecv           0                  0.0
+TcpExtTCPAbortOnData            0                  0.0
+TcpExtTCPAbortOnClose           0                  0.0
+TcpExtTCPAbortOnMemory          0                  0.0
+TcpExtTCPAbortOnTimeout         0                  0.0
+TcpExtTCPAbortOnLinger          0                  0.0
+TcpExtTCPAbortFailed            0                  0.0
+TcpExtTCPMemoryPressures        0                  0.0
+TcpExtTCPMemoryPressuresChrono  0                  0.0
+TcpExtTCPSACKDiscard            0                  0.0
+TcpExtTCPDSACKIgnoredOld        0                  0.0
+TcpExtTCPDSACKIgnoredNoUndo     0                  0.0
+TcpExtTCPSpuriousRTOs           0                  0.0
+TcpExtTCPMD5NotFound            0                  0.0
+TcpExtTCPMD5Unexpected          0                  0.0
+TcpExtTCPMD5Failure             0                  0.0
+TcpExtTCPSackShifted            0                  0.0
+TcpExtTCPSackMerged             0                  0.0
+TcpExtTCPSackShiftFallback      0                  0.0
+TcpExtTCPBacklogDrop            0                  0.0
+TcpExtPFMemallocDrop            0                  0.0
+TcpExtTCPMinTTLDrop             0                  0.0
+TcpExtTCPDeferAcceptDrop        0                  0.0
+TcpExtIPReversePathFilter       0                  0.0
+TcpExtTCPTimeWaitOverflow       0                  0.0
+TcpExtTCPReqQFullDoCookies      0                  0.0
+TcpExtTCPReqQFullDrop           0                  0.0
+TcpExtTCPRetransFail            0                  0.0
+TcpExtTCPRcvCoalesce            0                  0.0
+TcpExtTCPOFOQueue               0                  0.0
+TcpExtTCPOFODrop                0                  0.0
+TcpExtTCPOFOMerge               0                  0.0
+TcpExtTCPChallengeACK           0                  0.0
+TcpExtTCPSYNChallenge           0                  0.0
+TcpExtTCPFastOpenActive         0                  0.0
+TcpExtTCPFastOpenActiveFail     0                  0.0
+TcpExtTCPFastOpenPassive        0                  0.0
+TcpExtTCPFastOpenPassiveFail    0                  0.0
+TcpExtTCPFastOpenListenOverflow 0                  0.0
+TcpExtTCPFastOpenCookieReqd     0                  0.0
+TcpExtTCPFastOpenBlackhole      0                  0.0
+TcpExtTCPSpuriousRtxHostQueues  0                  0.0
+TcpExtBusyPollRxPackets         0                  0.0
+TcpExtTCPAutoCorking            0                  0.0
+TcpExtTCPFromZeroWindowAdv      0                  0.0
+TcpExtTCPToZeroWindowAdv        0                  0.0
+TcpExtTCPWantZeroWindowAdv      0                  0.0
+TcpExtTCPSynRetrans             0                  0.0
+TcpExtTCPOrigDataSent           0                  0.0
+TcpExtTCPHystartTrainDetect     0                  0.0
+TcpExtTCPHystartTrainCwnd       0                  0.0
+TcpExtTCPHystartDelayDetect     0                  0.0
+TcpExtTCPHystartDelayCwnd       0                  0.0
+TcpExtTCPACKSkippedSynRecv      0                  0.0
+TcpExtTCPACKSkippedPAWS         0                  0.0
+TcpExtTCPACKSkippedSeq          0                  0.0
+TcpExtTCPACKSkippedFinWait2     0                  0.0
+TcpExtTCPACKSkippedTimeWait     0                  0.0
+TcpExtTCPACKSkippedChallenge    0                  0.0
+TcpExtTCPWinProbe               0                  0.0
+TcpExtTCPKeepAlive              0                  0.0
+TcpExtTCPMTUPFail               0                  0.0
+TcpExtTCPMTUPSuccess            0                  0.0
+TcpExtTCPDelivered              0                  0.0
+TcpExtTCPDeliveredCE            0                  0.0
+TcpExtTCPAckCompressed          0                  0.0
+TcpExtTCPZeroWindowDrop         0                  0.0
+TcpExtTCPRcvQDrop               0                  0.0
+TcpExtTCPWqueueTooBig           0                  0.0
+TcpExtTCPFastOpenPassiveAltKey  0                  0.0
+TcpExtTcpTimeoutRehash          0                  0.0
+TcpExtTcpDuplicateDataRehash    0                  0.0
+TcpExtTCPDSACKRecvSegs          0                  0.0
+TcpExtTCPDSACKIgnoredDubious    0                  0.0
+TcpExtTCPMigrateReqSuccess      0                  0.0
+TcpExtTCPMigrateReqFailure      0                  0.0
+TcpExtTCPPLBRehash              0                  0.0
+TcpExtTCPAORequired             0                  0.0
+TcpExtTCPAOBad                  0                  0.0
+TcpExtTCPAOKeyNotFound          0                  0.0
+TcpExtTCPAOGood                 0                  0.0
+TcpExtTCPAODroppedIcmps         0                  0.0
+IpExtInNoRoutes                 0                  0.0
+IpExtInTruncatedPkts            0                  0.0
+IpExtInMcastPkts                0                  0.0
+IpExtOutMcastPkts               0                  0.0
+IpExtInBcastPkts                0                  0.0
+IpExtOutBcastPkts               0                  0.0
+IpExtInOctets                   80                 0.0
+IpExtOutOctets                  0                  0.0
+IpExtInMcastOctets              0                  0.0
+IpExtOutMcastOctets             0                  0.0
+IpExtInBcastOctets              0                  0.0
+IpExtOutBcastOctets             0                  0.0
+IpExtInCsumErrors               0                  0.0
+IpExtInNoECTPkts                2                  0.0
+IpExtInECT1Pkts                 0                  0.0
+IpExtInECT0Pkts                 0                  0.0
+IpExtInCEPkts                   0                  0.0
+IpExtReasmOverlaps              0                  0.0
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 56 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 56(84) bytes of data.
+64 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.303 ms
+64 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.129 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 104ms
+rtt min/avg/max/mdev = 0.129/0.216/0.303/0.087 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1472 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1472(1500) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 101ms
+[exit status 1]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 764 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 764(792) bytes of data.
+772 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.118 ms
+772 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.115 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.115/0.116/0.118/0.001 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1118 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1118(1146) bytes of data.
+1126 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.073 ms
+1126 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.111 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 106ms
+rtt min/avg/max/mdev = 0.073/0.092/0.111/0.019 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1295 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1295(1323) bytes of data.
+1303 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.067 ms
+1303 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.140 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 106ms
+rtt min/avg/max/mdev = 0.067/0.103/0.140/0.036 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1384 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1384(1412) bytes of data.
+1392 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.078 ms
+1392 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.104 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.078/0.091/0.104/0.013 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1428 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1428(1456) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1406 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1406(1434) bytes of data.
+1414 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.113 ms
+1414 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.100 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.100/0.106/0.113/0.006 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1417 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1417(1445) bytes of data.
+1425 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.075 ms
+1425 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.139 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.075/0.107/0.139/0.032 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1422(1450) bytes of data.
+1430 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.071 ms
+1430 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.151 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.071/0.111/0.151/0.040 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1425 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1425(1453) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1423 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1423(1451) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 102ms
+[exit status 1]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1422(1450) bytes of data.
+1430 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.117 ms
+1430 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.157 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 101ms
+rtt min/avg/max/mdev = 0.117/0.137/0.157/0.020 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1423 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1423(1451) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 100ms
+[exit status 1]
+OBSERVED largest successful payload=1422; smallest failing payload=1423
+st2$ iperf3 -s -1 -J
+st1$ timeout 15 iperf3 -c 10.45.50.11 -t 3 -J --connect-timeout 2000
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;local_port&quot;:	38606,
+				&quot;remote_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;remote_port&quot;:	5201
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux ec5ea824496f 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:10:02 GMT&quot;,
+			&quot;timesecs&quot;:	1795162202
+		},
+		&quot;connecting_to&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.11&quot;,
+			&quot;port&quot;:	5201
+		},
+		&quot;cookie&quot;:	&quot;5sisgoa5vztu7mtolfdxyz5imvsqvi6cuorf&quot;,
+		&quot;tcp_mss_default&quot;:	1448,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001168,
+					&quot;seconds&quot;:	1.0011680126190186,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;retransmits&quot;:	2,
+					&quot;snd_cwnd&quot;:	1448,
+					&quot;snd_wnd&quot;:	65536,
+					&quot;rtt&quot;:	39,
+					&quot;rttvar&quot;:	18,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001168,
+				&quot;seconds&quot;:	1.0011680126190186,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;retransmits&quot;:	2,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001168,
+					&quot;end&quot;:	2.001213,
+					&quot;seconds&quot;:	1.0000449419021606,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;retransmits&quot;:	1,
+					&quot;snd_cwnd&quot;:	1448,
+					&quot;snd_wnd&quot;:	65536,
+					&quot;rtt&quot;:	39,
+					&quot;rttvar&quot;:	18,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001168,
+				&quot;end&quot;:	2.001213,
+				&quot;seconds&quot;:	1.0000449419021606,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;retransmits&quot;:	1,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001213,
+					&quot;end&quot;:	3.001772,
+					&quot;seconds&quot;:	1.0005589723587036,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;retransmits&quot;:	0,
+					&quot;snd_cwnd&quot;:	1448,
+					&quot;snd_wnd&quot;:	65536,
+					&quot;rtt&quot;:	39,
+					&quot;rttvar&quot;:	18,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001213,
+				&quot;end&quot;:	3.001772,
+				&quot;seconds&quot;:	1.0005589723587036,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;retransmits&quot;:	0,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.001772,
+					&quot;seconds&quot;:	3.001772,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;retransmits&quot;:	3,
+					&quot;max_snd_cwnd&quot;:	1448,
+					&quot;max_snd_wnd&quot;:	65536,
+					&quot;max_rtt&quot;:	39,
+					&quot;min_rtt&quot;:	39,
+					&quot;mean_rtt&quot;:	39,
+					&quot;sender&quot;:	true
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002126,
+					&quot;seconds&quot;:	3.001772,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;sender&quot;:	true
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.001772,
+			&quot;seconds&quot;:	3.001772,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;retransmits&quot;:	3,
+			&quot;sender&quot;:	true
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002126,
+			&quot;seconds&quot;:	3.002126,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;sender&quot;:	true
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	0.070127815102321342,
+			&quot;host_user&quot;:	0,
+			&quot;host_system&quot;:	0.0701611141598248,
+			&quot;remote_total&quot;:	0.021384489117226971,
+			&quot;remote_user&quot;:	0.02151772580954614,
+			&quot;remote_system&quot;:	0
+		},
+		&quot;sender_tcp_congestion&quot;:	&quot;cubic&quot;,
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 0.000 Mbit/s
+iperf3 server output:
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;local_port&quot;:	5201,
+				&quot;remote_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;remote_port&quot;:	38606
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux ec5ea824496f 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:10:02 GMT&quot;,
+			&quot;timesecs&quot;:	1795162202
+		},
+		&quot;accepted_connection&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.10&quot;,
+			&quot;port&quot;:	38598
+		},
+		&quot;cookie&quot;:	&quot;5sisgoa5vztu7mtolfdxyz5imvsqvi6cuorf&quot;,
+		&quot;tcp_mss_default&quot;:	0,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001218,
+					&quot;seconds&quot;:	1.00121796131134,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001218,
+				&quot;seconds&quot;:	1.00121796131134,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001218,
+					&quot;end&quot;:	2.001258,
+					&quot;seconds&quot;:	1.0000400543212891,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001218,
+				&quot;end&quot;:	2.001258,
+				&quot;seconds&quot;:	1.0000400543212891,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001258,
+					&quot;end&quot;:	3.001135,
+					&quot;seconds&quot;:	0.99987697601318359,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001258,
+				&quot;end&quot;:	3.001135,
+				&quot;seconds&quot;:	0.99987697601318359,
+				&quot;bytes&quot;:	0,
+				&quot;bits_per_second&quot;:	0,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002126,
+					&quot;seconds&quot;:	3.002126,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;sender&quot;:	false
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002126,
+					&quot;seconds&quot;:	3.002126,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;sender&quot;:	false
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002126,
+			&quot;seconds&quot;:	3.002126,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;sender&quot;:	false
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002126,
+			&quot;seconds&quot;:	3.002126,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;sender&quot;:	false
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	0.021384489117226971,
+			&quot;host_user&quot;:	0.02151772580954614,
+			&quot;host_system&quot;:	0,
+			&quot;remote_total&quot;:	0,
+			&quot;remote_user&quot;:	0,
+			&quot;remote_system&quot;:	0
+		},
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}
+cedar$ ip -s -s link show vxlan145; ip -s -s link show cedar-eth0
+7: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 72:85:ed:23:ee:ec brd ff:ff:ff:ff:ff:ff
+    RX:  bytes packets errors dropped  missed   mcast           
+         22291      36      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         22721      41      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       0 
+2: cedar-eth0@if2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 9e:b3:77:df:f2:44 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+         26137      55      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         25561      45      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2
+[exit status 0]
+maple$ ip -s -s link show maple-eth0; nstat -az
+2: maple-eth0@if3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether a6:11:9a:91:fc:ff brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    RX:  bytes packets errors dropped  missed   mcast           
+         26959      61      0       0       0       0 
+    RX errors:  length    crc   frame    fifo overrun
+                     0      0       0       0       0 
+    TX:  bytes packets errors dropped carrier collsns           
+         24769      39      0       0       0       0 
+    TX errors: aborted   fifo  window heartbt transns
+                     0      0       0       0       2 
+#kernel
+IpInReceives                    42                 0.0
+IpInHdrErrors                   0                  0.0
+IpInAddrErrors                  0                  0.0
+IpForwDatagrams                 0                  0.0
+IpInUnknownProtos               0                  0.0
+IpInDiscards                    0                  0.0
+IpInDelivers                    40                 0.0
+IpOutRequests                   36                 0.0
+IpOutDiscards                   0                  0.0
+IpOutNoRoutes                   0                  0.0
+IpReasmTimeout                  0                  0.0
+IpReasmReqds                    0                  0.0
+IpReasmOKs                      0                  0.0
+IpReasmFails                    0                  0.0
+IpFragOKs                       0                  0.0
+IpFragFails                     0                  0.0
+IpFragCreates                   0                  0.0
+IpOutTransmits                  36                 0.0
+IcmpInMsgs                      0                  0.0
+IcmpInErrors                    0                  0.0
+IcmpInCsumErrors                0                  0.0
+IcmpInDestUnreachs              0                  0.0
+IcmpInTimeExcds                 0                  0.0
+IcmpInParmProbs                 0                  0.0
+IcmpInSrcQuenchs                0                  0.0
+IcmpInRedirects                 0                  0.0
+IcmpInEchos                     0                  0.0
+IcmpInEchoReps                  0                  0.0
+IcmpInTimestamps                0                  0.0
+IcmpInTimestampReps             0                  0.0
+IcmpInAddrMasks                 0                  0.0
+IcmpInAddrMaskReps              0                  0.0
+IcmpOutMsgs                     0                  0.0
+IcmpOutErrors                   0                  0.0
+IcmpOutRateLimitGlobal          0                  0.0
+IcmpOutRateLimitHost            0                  0.0
+IcmpOutDestUnreachs             0                  0.0
+IcmpOutTimeExcds                0                  0.0
+IcmpOutParmProbs                0                  0.0
+IcmpOutSrcQuenchs               0                  0.0
+IcmpOutRedirects                0                  0.0
+IcmpOutEchos                    0                  0.0
+IcmpOutEchoReps                 0                  0.0
+IcmpOutTimestamps               0                  0.0
+IcmpOutTimestampReps            0                  0.0
+IcmpOutAddrMasks                0                  0.0
+IcmpOutAddrMaskReps             0                  0.0
+TcpActiveOpens                  0                  0.0
+TcpPassiveOpens                 0                  0.0
+TcpAttemptFails                 0                  0.0
+TcpEstabResets                  0                  0.0
+TcpInSegs                       0                  0.0
+TcpOutSegs                      0                  0.0
+TcpRetransSegs                  0                  0.0
+TcpInErrs                       0                  0.0
+TcpOutRsts                      0                  0.0
+TcpInCsumErrors                 0                  0.0
+UdpInDatagrams                  40                 0.0
+UdpNoPorts                      0                  0.0
+UdpInErrors                     0                  0.0
+UdpOutDatagrams                 0                  0.0
+UdpRcvbufErrors                 0                  0.0
+UdpSndbufErrors                 0                  0.0
+UdpInCsumErrors                 0                  0.0
+UdpIgnoredMulti                 0                  0.0
+UdpMemErrors                    0                  0.0
+UdpLiteInDatagrams              0                  0.0
+UdpLiteNoPorts                  0                  0.0
+UdpLiteInErrors                 0                  0.0
+UdpLiteOutDatagrams             0                  0.0
+UdpLiteRcvbufErrors             0                  0.0
+UdpLiteSndbufErrors             0                  0.0
+UdpLiteInCsumErrors             0                  0.0
+UdpLiteIgnoredMulti             0                  0.0
+UdpLiteMemErrors                0                  0.0
+Ip6InReceives                   19                 0.0
+Ip6InHdrErrors                  0                  0.0
+Ip6InTooBigErrors               0                  0.0
+Ip6InNoRoutes                   0                  0.0
+Ip6InAddrErrors                 0                  0.0
+Ip6InUnknownProtos              0                  0.0
+Ip6InTruncatedPkts              0                  0.0
+Ip6InDiscards                   15                 0.0
+Ip6InDelivers                   0                  0.0
+Ip6OutForwDatagrams             0                  0.0
+Ip6OutRequests                  4                  0.0
+Ip6OutDiscards                  0                  0.0
+Ip6OutNoRoutes                  0                  0.0
+Ip6ReasmTimeout                 0                  0.0
+Ip6ReasmReqds                   0                  0.0
+Ip6ReasmOKs                     0                  0.0
+Ip6ReasmFails                   0                  0.0
+Ip6FragOKs                      0                  0.0
+Ip6FragFails                    0                  0.0
+Ip6FragCreates                  0                  0.0
+Ip6InMcastPkts                  4                  0.0
+Ip6OutMcastPkts                 4                  0.0
+Ip6InOctets                     1472               0.0
+Ip6OutOctets                    300                0.0
+Ip6InMcastOctets                300                0.0
+Ip6OutMcastOctets               300                0.0
+Ip6InBcastOctets                0                  0.0
+Ip6OutBcastOctets               0                  0.0
+Ip6InNoECTPkts                  4                  0.0
+Ip6InECT1Pkts                   0                  0.0
+Ip6InECT0Pkts                   0                  0.0
+Ip6InCEPkts                     0                  0.0
+Ip6OutTransmits                 4                  0.0
+Icmp6InMsgs                     0                  0.0
+Icmp6InErrors                   0                  0.0
+Icmp6OutMsgs                    4                  0.0
+Icmp6OutErrors                  0                  0.0
+Icmp6InCsumErrors               0                  0.0
+Icmp6OutRateLimitHost           0                  0.0
+Icmp6InDestUnreachs             0                  0.0
+Icmp6InPktTooBigs               0                  0.0
+Icmp6InTimeExcds                0                  0.0
+Icmp6InParmProblems             0                  0.0
+Icmp6InEchos                    0                  0.0
+Icmp6InEchoReplies              0                  0.0
+Icmp6InGroupMembQueries         0                  0.0
+Icmp6InGroupMembResponses       0                  0.0
+Icmp6InGroupMembReductions      0                  0.0
+Icmp6InRouterSolicits           0                  0.0
+Icmp6InRouterAdvertisements     0                  0.0
+Icmp6InNeighborSolicits         0                  0.0
+Icmp6InNeighborAdvertisements   0                  0.0
+Icmp6InRedirects                0                  0.0
+Icmp6InMLDv2Reports             0                  0.0
+Icmp6OutDestUnreachs            0                  0.0
+Icmp6OutPktTooBigs              0                  0.0
+Icmp6OutTimeExcds               0                  0.0
+Icmp6OutParmProblems            0                  0.0
+Icmp6OutEchos                   0                  0.0
+Icmp6OutEchoReplies             0                  0.0
+Icmp6OutGroupMembQueries        0                  0.0
+Icmp6OutGroupMembResponses      0                  0.0
+Icmp6OutGroupMembReductions     0                  0.0
+Icmp6OutRouterSolicits          0                  0.0
+Icmp6OutRouterAdvertisements    0                  0.0
+Icmp6OutNeighborSolicits        1                  0.0
+Icmp6OutNeighborAdvertisements  0                  0.0
+Icmp6OutRedirects               0                  0.0
+Icmp6OutMLDv2Reports            3                  0.0
+Icmp6OutType135                 1                  0.0
+Icmp6OutType143                 3                  0.0
+Udp6InDatagrams                 0                  0.0
+Udp6NoPorts                     0                  0.0
+Udp6InErrors                    0                  0.0
+Udp6OutDatagrams                0                  0.0
+Udp6RcvbufErrors                0                  0.0
+Udp6SndbufErrors                0                  0.0
+Udp6InCsumErrors                0                  0.0
+Udp6IgnoredMulti                0                  0.0
+Udp6MemErrors                   0                  0.0
+UdpLite6InDatagrams             0                  0.0
+UdpLite6NoPorts                 0                  0.0
+UdpLite6InErrors                0                  0.0
+UdpLite6OutDatagrams            0                  0.0
+UdpLite6RcvbufErrors            0                  0.0
+UdpLite6SndbufErrors            0                  0.0
+UdpLite6InCsumErrors            0                  0.0
+UdpLite6MemErrors               0                  0.0
+TcpExtSyncookiesSent            0                  0.0
+TcpExtSyncookiesRecv            0                  0.0
+TcpExtSyncookiesFailed          0                  0.0
+TcpExtEmbryonicRsts             0                  0.0
+TcpExtPruneCalled               0                  0.0
+TcpExtRcvPruned                 0                  0.0
+TcpExtOfoPruned                 0                  0.0
+TcpExtOutOfWindowIcmps          0                  0.0
+TcpExtLockDroppedIcmps          0                  0.0
+TcpExtArpFilter                 0                  0.0
+TcpExtTW                        0                  0.0
+TcpExtTWRecycled                0                  0.0
+TcpExtTWKilled                  0                  0.0
+TcpExtPAWSActive                0                  0.0
+TcpExtPAWSEstab                 0                  0.0
+TcpExtBeyondWindow              0                  0.0
+TcpExtTSEcrRejected             0                  0.0
+TcpExtPAWSOldAck                0                  0.0
+TcpExtPAWSTimewait              0                  0.0
+TcpExtDelayedACKs               0                  0.0
+TcpExtDelayedACKLocked          0                  0.0
+TcpExtDelayedACKLost            0                  0.0
+TcpExtListenOverflows           0                  0.0
+TcpExtListenDrops               0                  0.0
+TcpExtTCPHPHits                 0                  0.0
+TcpExtTCPPureAcks               0                  0.0
+TcpExtTCPHPAcks                 0                  0.0
+TcpExtTCPRenoRecovery           0                  0.0
+TcpExtTCPSackRecovery           0                  0.0
+TcpExtTCPSACKReneging           0                  0.0
+TcpExtTCPSACKReorder            0                  0.0
+TcpExtTCPRenoReorder            0                  0.0
+TcpExtTCPTSReorder              0                  0.0
+TcpExtTCPFullUndo               0                  0.0
+TcpExtTCPPartialUndo            0                  0.0
+TcpExtTCPDSACKUndo              0                  0.0
+TcpExtTCPLossUndo               0                  0.0
+TcpExtTCPLostRetransmit         0                  0.0
+TcpExtTCPRenoFailures           0                  0.0
+TcpExtTCPSackFailures           0                  0.0
+TcpExtTCPLossFailures           0                  0.0
+TcpExtTCPFastRetrans            0                  0.0
+TcpExtTCPSlowStartRetrans       0                  0.0
+TcpExtTCPTimeouts               0                  0.0
+TcpExtTCPLossProbes             0                  0.0
+TcpExtTCPLossProbeRecovery      0                  0.0
+TcpExtTCPRenoRecoveryFail       0                  0.0
+TcpExtTCPSackRecoveryFail       0                  0.0
+TcpExtTCPRcvCollapsed           0                  0.0
+TcpExtTCPBacklogCoalesce        0                  0.0
+TcpExtTCPDSACKOldSent           0                  0.0
+TcpExtTCPDSACKOfoSent           0                  0.0
+TcpExtTCPDSACKRecv              0                  0.0
+TcpExtTCPDSACKOfoRecv           0                  0.0
+TcpExtTCPAbortOnData            0                  0.0
+TcpExtTCPAbortOnClose           0                  0.0
+TcpExtTCPAbortOnMemory          0                  0.0
+TcpExtTCPAbortOnTimeout         0                  0.0
+TcpExtTCPAbortOnLinger          0                  0.0
+TcpExtTCPAbortFailed            0                  0.0
+TcpExtTCPMemoryPressures        0                  0.0
+TcpExtTCPMemoryPressuresChrono  0                  0.0
+TcpExtTCPSACKDiscard            0                  0.0
+TcpExtTCPDSACKIgnoredOld        0                  0.0
+TcpExtTCPDSACKIgnoredNoUndo     0                  0.0
+TcpExtTCPSpuriousRTOs           0                  0.0
+TcpExtTCPMD5NotFound            0                  0.0
+TcpExtTCPMD5Unexpected          0                  0.0
+TcpExtTCPMD5Failure             0                  0.0
+TcpExtTCPSackShifted            0                  0.0
+TcpExtTCPSackMerged             0                  0.0
+TcpExtTCPSackShiftFallback      0                  0.0
+TcpExtTCPBacklogDrop            0                  0.0
+TcpExtPFMemallocDrop            0                  0.0
+TcpExtTCPMinTTLDrop             0                  0.0
+TcpExtTCPDeferAcceptDrop        0                  0.0
+TcpExtIPReversePathFilter       0                  0.0
+TcpExtTCPTimeWaitOverflow       0                  0.0
+TcpExtTCPReqQFullDoCookies      0                  0.0
+TcpExtTCPReqQFullDrop           0                  0.0
+TcpExtTCPRetransFail            0                  0.0
+TcpExtTCPRcvCoalesce            0                  0.0
+TcpExtTCPOFOQueue               0                  0.0
+TcpExtTCPOFODrop                0                  0.0
+TcpExtTCPOFOMerge               0                  0.0
+TcpExtTCPChallengeACK           0                  0.0
+TcpExtTCPSYNChallenge           0                  0.0
+TcpExtTCPFastOpenActive         0                  0.0
+TcpExtTCPFastOpenActiveFail     0                  0.0
+TcpExtTCPFastOpenPassive        0                  0.0
+TcpExtTCPFastOpenPassiveFail    0                  0.0
+TcpExtTCPFastOpenListenOverflow 0                  0.0
+TcpExtTCPFastOpenCookieReqd     0                  0.0
+TcpExtTCPFastOpenBlackhole      0                  0.0
+TcpExtTCPSpuriousRtxHostQueues  0                  0.0
+TcpExtBusyPollRxPackets         0                  0.0
+TcpExtTCPAutoCorking            0                  0.0
+TcpExtTCPFromZeroWindowAdv      0                  0.0
+TcpExtTCPToZeroWindowAdv        0                  0.0
+TcpExtTCPWantZeroWindowAdv      0                  0.0
+TcpExtTCPSynRetrans             0                  0.0
+TcpExtTCPOrigDataSent           0                  0.0
+TcpExtTCPHystartTrainDetect     0                  0.0
+TcpExtTCPHystartTrainCwnd       0                  0.0
+TcpExtTCPHystartDelayDetect     0                  0.0
+TcpExtTCPHystartDelayCwnd       0                  0.0
+TcpExtTCPACKSkippedSynRecv      0                  0.0
+TcpExtTCPACKSkippedPAWS         0                  0.0
+TcpExtTCPACKSkippedSeq          0                  0.0
+TcpExtTCPACKSkippedFinWait2     0                  0.0
+TcpExtTCPACKSkippedTimeWait     0                  0.0
+TcpExtTCPACKSkippedChallenge    0                  0.0
+TcpExtTCPWinProbe               0                  0.0
+TcpExtTCPKeepAlive              0                  0.0
+TcpExtTCPMTUPFail               0                  0.0
+TcpExtTCPMTUPSuccess            0                  0.0
+TcpExtTCPDelivered              0                  0.0
+TcpExtTCPDeliveredCE            0                  0.0
+TcpExtTCPAckCompressed          0                  0.0
+TcpExtTCPZeroWindowDrop         0                  0.0
+TcpExtTCPRcvQDrop               0                  0.0
+TcpExtTCPWqueueTooBig           0                  0.0
+TcpExtTCPFastOpenPassiveAltKey  0                  0.0
+TcpExtTcpTimeoutRehash          0                  0.0
+TcpExtTcpDuplicateDataRehash    0                  0.0
+TcpExtTCPDSACKRecvSegs          0                  0.0
+TcpExtTCPDSACKIgnoredDubious    0                  0.0
+TcpExtTCPMigrateReqSuccess      0                  0.0
+TcpExtTCPMigrateReqFailure      0                  0.0
+TcpExtTCPPLBRehash              0                  0.0
+TcpExtTCPAORequired             0                  0.0
+TcpExtTCPAOBad                  0                  0.0
+TcpExtTCPAOKeyNotFound          0                  0.0
+TcpExtTCPAOGood                 0                  0.0
+TcpExtTCPAODroppedIcmps         0                  0.0
+IpExtInNoRoutes                 0                  0.0
+IpExtInTruncatedPkts            0                  0.0
+IpExtInMcastPkts                0                  0.0
+IpExtOutMcastPkts               0                  0.0
+IpExtInBcastPkts                0                  0.0
+IpExtOutBcastPkts               0                  0.0
+IpExtInOctets                   24773              0.0
+IpExtOutOctets                  24091              0.0
+IpExtInMcastOctets              0                  0.0
+IpExtOutMcastOctets             0                  0.0
+IpExtInBcastOctets              0                  0.0
+IpExtOutBcastOctets             0                  0.0
+IpExtInCsumErrors               0                  0.0
+IpExtInNoECTPkts                42                 0.0
+IpExtInECT1Pkts                 0                  0.0
+IpExtInECT0Pkts                 0                  0.0
+IpExtInCEPkts                   0                  0.0
+IpExtReasmOverlaps              0                  0.0
+[exit status 0]</pre>
+<h3>Two fixes, measured</h3>
+<p class="file">evidence6/fixes.txt</p>
+<pre id="evidence-fixes">Fresh network: mtu_a.yaml; force=False; 2026-11-20T08:07:45.099360+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1450 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1450 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1450 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1450 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1450 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1450 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+cedar-eth0@if14  UP             ba:34:a3:09:03:11 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth1@if2   UP             fa:69:ae:79:ce:40 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth2@if2   UP             8a:0e:f8:b5:69:45 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth3@if2   UP             96:ef:8a:f3:02:6d &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             42:60:ed:2f:3a:66 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        42:60:ed:2f:3a:66 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             6a:58:60:dc:b9:0f &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        6a:58:60:dc:b9:0f &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+7: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 42:60:ed:2f:3a:66 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.1 dev cedar-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.42:60:ed:2f:3a:66 designated_root 8000.42:60:ed:2f:3a:66 hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.74 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+maple$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+maple-eth0@if15  UP             5a:46:77:c8:f8:1f &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+maple-eth1@if2   UP             2a:f7:f6:14:68:fa &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+maple-eth2@if2   UP             da:2c:36:41:ea:db &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             2a:f7:f6:14:68:fa &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        2e:bb:cc:24:95:e8 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             1e:60:e7:c7:30:48 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        1e:60:e7:c7:30:48 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+6: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 2e:bb:cc:24:95:e8 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.2 dev maple-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.2a:f7:f6:14:68:fa designated_root 8000.2a:f7:f6:14:68:fa hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.84 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+birch$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+birch-eth0@if16  UP             ca:e9:30:6e:02:e1 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+birch-eth1@if2   UP             7e:a3:29:19:b5:fd &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+birch-eth2@if2   UP             8a:e7:12:f6:6e:5d &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             36:3f:93:f3:5e:9c &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        36:3f:93:f3:5e:9c &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             16:a3:a5:ea:69:d0 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        16:a3:a5:ea:69:d0 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+6: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 36:3f:93:f3:5e:9c brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.3 dev birch-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.36:3f:93:f3:5e:9c designated_root 8000.36:3f:93:f3:5e:9c hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.91 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1422 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1422(1450) bytes of data.
+1430 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.284 ms
+1430 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.111 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 102ms
+rtt min/avg/max/mdev = 0.111/0.197/0.284/0.086 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1423 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1423(1451) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 104ms
+
+ping: local error: message too long, mtu=1450
+ping: local error: message too long, mtu=1450
+[exit status 1]
+st2$ iperf3 -s -1 -J
+st1$ timeout 15 iperf3 -c 10.45.50.11 -t 3 -J --connect-timeout 2000
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;local_port&quot;:	42842,
+				&quot;remote_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;remote_port&quot;:	5201
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:07:50 GMT&quot;,
+			&quot;timesecs&quot;:	1795162070
+		},
+		&quot;connecting_to&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.11&quot;,
+			&quot;port&quot;:	5201
+		},
+		&quot;cookie&quot;:	&quot;ph65ehgj6s5d4xbsakpvtkk3unudqliwjbcm&quot;,
+		&quot;tcp_mss_default&quot;:	1398,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001082,
+					&quot;seconds&quot;:	1.0010819435119629,
+					&quot;bytes&quot;:	173539328,
+					&quot;bits_per_second&quot;:	1386814169.4071119,
+					&quot;retransmits&quot;:	3,
+					&quot;snd_cwnd&quot;:	265620,
+					&quot;snd_wnd&quot;:	12561408,
+					&quot;rtt&quot;:	794,
+					&quot;rttvar&quot;:	276,
+					&quot;pmtu&quot;:	1450,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001082,
+				&quot;seconds&quot;:	1.0010819435119629,
+				&quot;bytes&quot;:	173539328,
+				&quot;bits_per_second&quot;:	1386814169.4071119,
+				&quot;retransmits&quot;:	3,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001082,
+					&quot;end&quot;:	2.001069,
+					&quot;seconds&quot;:	0.999987006187439,
+					&quot;bytes&quot;:	173408256,
+					&quot;bits_per_second&quot;:	1387284074.1092279,
+					&quot;retransmits&quot;:	128,
+					&quot;snd_cwnd&quot;:	267018,
+					&quot;snd_wnd&quot;:	12561408,
+					&quot;rtt&quot;:	533,
+					&quot;rttvar&quot;:	181,
+					&quot;pmtu&quot;:	1450,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001082,
+				&quot;end&quot;:	2.001069,
+				&quot;seconds&quot;:	0.999987006187439,
+				&quot;bytes&quot;:	173408256,
+				&quot;bits_per_second&quot;:	1387284074.1092279,
+				&quot;retransmits&quot;:	128,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001069,
+					&quot;end&quot;:	3.001773,
+					&quot;seconds&quot;:	1.0007040500640869,
+					&quot;bytes&quot;:	166985728,
+					&quot;bits_per_second&quot;:	1334945955.2146785,
+					&quot;retransmits&quot;:	140,
+					&quot;snd_cwnd&quot;:	271212,
+					&quot;snd_wnd&quot;:	12561408,
+					&quot;rtt&quot;:	573,
+					&quot;rttvar&quot;:	236,
+					&quot;pmtu&quot;:	1450,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001069,
+				&quot;end&quot;:	3.001773,
+				&quot;seconds&quot;:	1.0007040500640869,
+				&quot;bytes&quot;:	166985728,
+				&quot;bits_per_second&quot;:	1334945955.2146785,
+				&quot;retransmits&quot;:	140,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.001773,
+					&quot;seconds&quot;:	3.001773,
+					&quot;bytes&quot;:	515375104,
+					&quot;bits_per_second&quot;:	1373521859.2478511,
+					&quot;retransmits&quot;:	271,
+					&quot;max_snd_cwnd&quot;:	271212,
+					&quot;max_snd_wnd&quot;:	12561408,
+					&quot;max_rtt&quot;:	794,
+					&quot;min_rtt&quot;:	533,
+					&quot;mean_rtt&quot;:	633,
+					&quot;sender&quot;:	true
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002192,
+					&quot;seconds&quot;:	3.001773,
+					&quot;bytes&quot;:	515506176,
+					&quot;bits_per_second&quot;:	1373679434.2267251,
+					&quot;sender&quot;:	true
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.001773,
+			&quot;seconds&quot;:	3.001773,
+			&quot;bytes&quot;:	515375104,
+			&quot;bits_per_second&quot;:	1373521859.2478511,
+			&quot;retransmits&quot;:	271,
+			&quot;sender&quot;:	true
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002192,
+			&quot;seconds&quot;:	3.002192,
+			&quot;bytes&quot;:	515506176,
+			&quot;bits_per_second&quot;:	1373679434.2267251,
+			&quot;sender&quot;:	true
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	93.2605602433745,
+			&quot;host_user&quot;:	0.061689226124804659,
+			&quot;host_system&quot;:	93.198871017249672,
+			&quot;remote_total&quot;:	15.081036955969305,
+			&quot;remote_user&quot;:	0.033471894765695072,
+			&quot;remote_system&quot;:	15.04756506120361
+		},
+		&quot;sender_tcp_congestion&quot;:	&quot;cubic&quot;,
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1373.679 Mbit/s
+iperf3 server output:
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;local_port&quot;:	5201,
+				&quot;remote_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;remote_port&quot;:	42842
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:07:50 GMT&quot;,
+			&quot;timesecs&quot;:	1795162070
+		},
+		&quot;accepted_connection&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.10&quot;,
+			&quot;port&quot;:	42826
+		},
+		&quot;cookie&quot;:	&quot;ph65ehgj6s5d4xbsakpvtkk3unudqliwjbcm&quot;,
+		&quot;tcp_mss_default&quot;:	0,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001066,
+					&quot;seconds&quot;:	1.0010659694671631,
+					&quot;bytes&quot;:	173408256,
+					&quot;bits_per_second&quot;:	1385788839.4092543,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001066,
+				&quot;seconds&quot;:	1.0010659694671631,
+				&quot;bytes&quot;:	173408256,
+				&quot;bits_per_second&quot;:	1385788839.4092543,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001066,
+					&quot;end&quot;:	2.001082,
+					&quot;seconds&quot;:	1.0000159740448,
+					&quot;bytes&quot;:	173801472,
+					&quot;bits_per_second&quot;:	1390389565.8547859,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001066,
+				&quot;end&quot;:	2.001082,
+				&quot;seconds&quot;:	1.0000159740448,
+				&quot;bytes&quot;:	173801472,
+				&quot;bits_per_second&quot;:	1390389565.8547859,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001082,
+					&quot;end&quot;:	3.001065,
+					&quot;seconds&quot;:	0.999983012676239,
+					&quot;bytes&quot;:	168034304,
+					&quot;bits_per_second&quot;:	1344297268.0129228,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001082,
+				&quot;end&quot;:	3.001065,
+				&quot;seconds&quot;:	0.999983012676239,
+				&quot;bytes&quot;:	168034304,
+				&quot;bits_per_second&quot;:	1344297268.0129228,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	3.001065,
+					&quot;end&quot;:	3.002192,
+					&quot;seconds&quot;:	0.0011269999668002129,
+					&quot;bytes&quot;:	131072,
+					&quot;bits_per_second&quot;:	930413514.542618,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	3.001065,
+				&quot;end&quot;:	3.002192,
+				&quot;seconds&quot;:	0.0011269999668002129,
+				&quot;bytes&quot;:	131072,
+				&quot;bits_per_second&quot;:	930413514.542618,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002192,
+					&quot;seconds&quot;:	3.002192,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;sender&quot;:	false
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002192,
+					&quot;seconds&quot;:	3.002192,
+					&quot;bytes&quot;:	515506176,
+					&quot;bits_per_second&quot;:	1373679434.2267251,
+					&quot;sender&quot;:	false
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002192,
+			&quot;seconds&quot;:	3.002192,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;sender&quot;:	false
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002192,
+			&quot;seconds&quot;:	3.002192,
+			&quot;bytes&quot;:	515506176,
+			&quot;bits_per_second&quot;:	1373679434.2267251,
+			&quot;sender&quot;:	false
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	15.081036955969305,
+			&quot;host_user&quot;:	0.033471894765695072,
+			&quot;host_system&quot;:	15.04756506120361,
+			&quot;remote_total&quot;:	0,
+			&quot;remote_user&quot;:	0,
+			&quot;remote_system&quot;:	0
+		},
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}
+Fresh network: mtu_b.yaml; force=False; 2026-11-20T08:07:54.323925+00:00
+VTEP commands on cedar (10.45.0.1):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set cedar-eth1 master br145
+  ip link set cedar-eth1 mtu 1500 up
+  ip link set cedar-eth2 master br145
+  ip link set cedar-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set cedar-eth3 master br245
+  ip link set cedar-eth3 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on maple (10.45.0.2):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set maple-eth1 master br145
+  ip link set maple-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set maple-eth2 master br245
+  ip link set maple-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3
+VTEP commands on birch (10.45.0.3):
+  ip link add br145 type bridge
+  ip link set br145 mtu 1500 up
+  ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan145 master br145
+  ip link set vxlan145 mtu 1500 up
+  ip link set birch-eth1 master br145
+  ip link set birch-eth1 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2
+  ip link add br245 type bridge
+  ip link set br245 mtu 1500 up
+  ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0
+  ip link set vxlan245 master br245
+  ip link set vxlan245 mtu 1500 up
+  ip link set birch-eth2 master br245
+  ip link set birch-eth2 mtu 1500 up
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1
+  bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2
+cedar$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+cedar-eth0@if18  UP             0e:57:cc:5e:82:53 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth1@if2   UP             1a:5a:36:3f:b0:58 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth2@if2   UP             a2:0e:80:7a:68:74 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+cedar-eth3@if2   UP             26:bb:0d:44:8c:28 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             1a:5a:36:3f:b0:58 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        76:d3:bd:27:32:46 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             26:bb:0d:44:8c:28 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        ce:eb:89:48:9f:41 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+7: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 76:d3:bd:27:32:46 brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.1 dev cedar-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.1a:5a:36:3f:b0:58 designated_root 8000.1a:5a:36:3f:b0:58 hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.72 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+maple$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+maple-eth0@if19  UP             82:c6:f0:0e:c8:31 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+maple-eth1@if2   UP             56:65:33:57:a7:6e &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+maple-eth2@if2   UP             4e:0d:c1:2c:80:e7 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             46:f3:4c:50:d4:5c &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        46:f3:4c:50:d4:5c &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             4e:0d:c1:2c:80:e7 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        8a:db:5c:c6:89:6d &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+6: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 46:f3:4c:50:d4:5c brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.2 dev maple-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.46:f3:4c:50:d4:5c designated_root 8000.46:f3:4c:50:d4:5c hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.83 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+birch$ ip -br link; ip -d link show vxlan145
+lo               UNKNOWN        00:00:00:00:00:00 &lt;LOOPBACK,UP,LOWER_UP&gt; 
+birch-eth0@if20  UP             3e:c9:15:85:fd:05 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+birch-eth1@if2   UP             42:a9:c8:fb:2f:9f &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+birch-eth2@if2   UP             5a:a0:06:86:bb:86 &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br145            UP             42:a9:c8:fb:2f:9f &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan145         UNKNOWN        9a:a0:3a:da:16:ea &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+br245            UP             5a:a0:06:86:bb:86 &lt;BROADCAST,UP,LOWER_UP&gt; 
+vxlan245         UNKNOWN        86:20:38:92:5c:2e &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; 
+6: vxlan145: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue master br145 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 9a:a0:3a:da:16:ea brd ff:ff:ff:ff:ff:ff promiscuity 1  allmulti 1 minmtu 68 maxmtu 65535 
+    vxlan id 145 fan-map local 10.45.0.3 dev birch-eth0 srcport 0 0 dstport 4789 ttl auto ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx 
+    bridge_slave state forwarding priority 32 cost 2 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.42:a9:c8:fb:2f:9f designated_root 8000.42:a9:c8:fb:2f:9f hold_timer    0.00 message_age_timer    0.00 forward_delay_timer   14.90 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 524280 tso_max_segs 65535 gro_max_size 65536 
+info: Using default fan map value (33)
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1472 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1472(1500) bytes of data.
+1480 bytes from 10.45.50.11: icmp_seq=1 ttl=64 time=0.229 ms
+1480 bytes from 10.45.50.11: icmp_seq=2 ttl=64 time=0.135 ms
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 103ms
+rtt min/avg/max/mdev = 0.135/0.182/0.229/0.047 ms
+[exit status 0]
+st1$ ping -n -M do -c 2 -i 0.1 -W 1 -s 1473 10.45.50.11
+PING 10.45.50.11 (10.45.50.11) 1473(1501) bytes of data.
+
+--- 10.45.50.11 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 104ms
+
+ping: local error: message too long, mtu=1500
+ping: local error: message too long, mtu=1500
+[exit status 1]
+st2$ iperf3 -s -1 -J
+st1$ timeout 15 iperf3 -c 10.45.50.11 -t 3 -J --connect-timeout 2000
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;local_port&quot;:	46606,
+				&quot;remote_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;remote_port&quot;:	5201
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:07:59 GMT&quot;,
+			&quot;timesecs&quot;:	1795162079
+		},
+		&quot;connecting_to&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.11&quot;,
+			&quot;port&quot;:	5201
+		},
+		&quot;cookie&quot;:	&quot;u3boy2uu7nuhdiux6tp4n5fdagxfvk3putlg&quot;,
+		&quot;tcp_mss_default&quot;:	1448,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001066,
+					&quot;seconds&quot;:	1.0010659694671631,
+					&quot;bytes&quot;:	182583296,
+					&quot;bits_per_second&quot;:	1459111000.2245588,
+					&quot;retransmits&quot;:	2,
+					&quot;snd_cwnd&quot;:	220096,
+					&quot;snd_wnd&quot;:	3825664,
+					&quot;rtt&quot;:	466,
+					&quot;rttvar&quot;:	140,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001066,
+				&quot;seconds&quot;:	1.0010659694671631,
+				&quot;bytes&quot;:	182583296,
+				&quot;bits_per_second&quot;:	1459111000.2245588,
+				&quot;retransmits&quot;:	2,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001066,
+					&quot;end&quot;:	2.001036,
+					&quot;seconds&quot;:	0.999970018863678,
+					&quot;bytes&quot;:	174587904,
+					&quot;bits_per_second&quot;:	1396745108.00549,
+					&quot;retransmits&quot;:	704,
+					&quot;snd_cwnd&quot;:	214304,
+					&quot;snd_wnd&quot;:	24100864,
+					&quot;rtt&quot;:	561,
+					&quot;rttvar&quot;:	121,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001066,
+				&quot;end&quot;:	2.001036,
+				&quot;seconds&quot;:	0.999970018863678,
+				&quot;bytes&quot;:	174587904,
+				&quot;bits_per_second&quot;:	1396745108.00549,
+				&quot;retransmits&quot;:	704,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001036,
+					&quot;end&quot;:	3.002671,
+					&quot;seconds&quot;:	1.001634955406189,
+					&quot;bytes&quot;:	179437568,
+					&quot;bits_per_second&quot;:	1433157395.5681961,
+					&quot;retransmits&quot;:	0,
+					&quot;snd_cwnd&quot;:	214304,
+					&quot;snd_wnd&quot;:	24123392,
+					&quot;rtt&quot;:	757,
+					&quot;rttvar&quot;:	297,
+					&quot;pmtu&quot;:	1500,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	true
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001036,
+				&quot;end&quot;:	3.002671,
+				&quot;seconds&quot;:	1.001634955406189,
+				&quot;bytes&quot;:	179437568,
+				&quot;bits_per_second&quot;:	1433157395.5681961,
+				&quot;retransmits&quot;:	0,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	true
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002671,
+					&quot;seconds&quot;:	3.002671,
+					&quot;bytes&quot;:	541589504,
+					&quot;bits_per_second&quot;:	1442953967.3177648,
+					&quot;retransmits&quot;:	706,
+					&quot;max_snd_cwnd&quot;:	220096,
+					&quot;max_snd_wnd&quot;:	24123392,
+					&quot;max_rtt&quot;:	757,
+					&quot;min_rtt&quot;:	466,
+					&quot;mean_rtt&quot;:	594,
+					&quot;sender&quot;:	true
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002866,
+					&quot;seconds&quot;:	3.002671,
+					&quot;bytes&quot;:	541720576,
+					&quot;bits_per_second&quot;:	1443209456.5658274,
+					&quot;sender&quot;:	true
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002671,
+			&quot;seconds&quot;:	3.002671,
+			&quot;bytes&quot;:	541589504,
+			&quot;bits_per_second&quot;:	1442953967.3177648,
+			&quot;retransmits&quot;:	706,
+			&quot;sender&quot;:	true
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002866,
+			&quot;seconds&quot;:	3.002866,
+			&quot;bytes&quot;:	541720576,
+			&quot;bits_per_second&quot;:	1443209456.5658274,
+			&quot;sender&quot;:	true
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	89.9659215833633,
+			&quot;host_user&quot;:	0,
+			&quot;host_system&quot;:	89.9659215833633,
+			&quot;remote_total&quot;:	16.322196739643342,
+			&quot;remote_user&quot;:	0.24789180408555264,
+			&quot;remote_system&quot;:	16.074304935557787
+		},
+		&quot;sender_tcp_congestion&quot;:	&quot;cubic&quot;,
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}
+[exit status 0]
+ACTUAL receiver throughput: 1443.209 Mbit/s
+iperf3 server output:
+{
+	&quot;start&quot;:	{
+		&quot;connected&quot;:	[{
+				&quot;socket&quot;:	7,
+				&quot;local_host&quot;:	&quot;10.45.50.11&quot;,
+				&quot;local_port&quot;:	5201,
+				&quot;remote_host&quot;:	&quot;10.45.50.10&quot;,
+				&quot;remote_port&quot;:	46606
+			}],
+		&quot;version&quot;:	&quot;iperf 3.16&quot;,
+		&quot;system_info&quot;:	&quot;Linux 95ec2b8e3fd3 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64&quot;,
+		&quot;sock_bufsize&quot;:	0,
+		&quot;sndbuf_actual&quot;:	16384,
+		&quot;rcvbuf_actual&quot;:	131072,
+		&quot;timestamp&quot;:	{
+			&quot;time&quot;:	&quot;Fri, 20 Nov 2026 08:07:59 GMT&quot;,
+			&quot;timesecs&quot;:	1795162079
+		},
+		&quot;accepted_connection&quot;:	{
+			&quot;host&quot;:	&quot;10.45.50.10&quot;,
+			&quot;port&quot;:	46594
+		},
+		&quot;cookie&quot;:	&quot;u3boy2uu7nuhdiux6tp4n5fdagxfvk3putlg&quot;,
+		&quot;tcp_mss_default&quot;:	0,
+		&quot;target_bitrate&quot;:	0,
+		&quot;fq_rate&quot;:	0,
+		&quot;test_start&quot;:	{
+			&quot;protocol&quot;:	&quot;TCP&quot;,
+			&quot;num_streams&quot;:	1,
+			&quot;blksize&quot;:	131072,
+			&quot;omit&quot;:	0,
+			&quot;duration&quot;:	3,
+			&quot;bytes&quot;:	0,
+			&quot;blocks&quot;:	0,
+			&quot;reverse&quot;:	0,
+			&quot;tos&quot;:	0,
+			&quot;target_bitrate&quot;:	0,
+			&quot;bidir&quot;:	0,
+			&quot;fqrate&quot;:	0
+		}
+	},
+	&quot;intervals&quot;:	[{
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	1.001134,
+					&quot;seconds&quot;:	1.0011340379714966,
+					&quot;bytes&quot;:	182583296,
+					&quot;bits_per_second&quot;:	1459011793.2256207,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	0,
+				&quot;end&quot;:	1.001134,
+				&quot;seconds&quot;:	1.0011340379714966,
+				&quot;bytes&quot;:	182583296,
+				&quot;bits_per_second&quot;:	1459011793.2256207,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	1.001134,
+					&quot;end&quot;:	2.001044,
+					&quot;seconds&quot;:	0.999909996986389,
+					&quot;bytes&quot;:	176291840,
+					&quot;bits_per_second&quot;:	1410461665.8005047,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	1.001134,
+				&quot;end&quot;:	2.001044,
+				&quot;seconds&quot;:	0.999909996986389,
+				&quot;bytes&quot;:	176291840,
+				&quot;bits_per_second&quot;:	1410461665.8005047,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	2.001044,
+					&quot;end&quot;:	3.001055,
+					&quot;seconds&quot;:	1.0000109672546387,
+					&quot;bytes&quot;:	182583296,
+					&quot;bits_per_second&quot;:	1460650348.675688,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	2.001044,
+				&quot;end&quot;:	3.001055,
+				&quot;seconds&quot;:	1.0000109672546387,
+				&quot;bytes&quot;:	182583296,
+				&quot;bits_per_second&quot;:	1460650348.675688,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}, {
+			&quot;streams&quot;:	[{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	3.001055,
+					&quot;end&quot;:	3.002866,
+					&quot;seconds&quot;:	0.0018110000528395176,
+					&quot;bytes&quot;:	262144,
+					&quot;bits_per_second&quot;:	1158007696.7484438,
+					&quot;omitted&quot;:	false,
+					&quot;sender&quot;:	false
+				}],
+			&quot;sum&quot;:	{
+				&quot;start&quot;:	3.001055,
+				&quot;end&quot;:	3.002866,
+				&quot;seconds&quot;:	0.0018110000528395176,
+				&quot;bytes&quot;:	262144,
+				&quot;bits_per_second&quot;:	1158007696.7484438,
+				&quot;omitted&quot;:	false,
+				&quot;sender&quot;:	false
+			}
+		}],
+	&quot;end&quot;:	{
+		&quot;streams&quot;:	[{
+				&quot;sender&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002866,
+					&quot;seconds&quot;:	3.002866,
+					&quot;bytes&quot;:	0,
+					&quot;bits_per_second&quot;:	0,
+					&quot;sender&quot;:	false
+				},
+				&quot;receiver&quot;:	{
+					&quot;socket&quot;:	7,
+					&quot;start&quot;:	0,
+					&quot;end&quot;:	3.002866,
+					&quot;seconds&quot;:	3.002866,
+					&quot;bytes&quot;:	541720576,
+					&quot;bits_per_second&quot;:	1443209456.5658274,
+					&quot;sender&quot;:	false
+				}
+			}],
+		&quot;sum_sent&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002866,
+			&quot;seconds&quot;:	3.002866,
+			&quot;bytes&quot;:	0,
+			&quot;bits_per_second&quot;:	0,
+			&quot;sender&quot;:	false
+		},
+		&quot;sum_received&quot;:	{
+			&quot;start&quot;:	0,
+			&quot;end&quot;:	3.002866,
+			&quot;seconds&quot;:	3.002866,
+			&quot;bytes&quot;:	541720576,
+			&quot;bits_per_second&quot;:	1443209456.5658274,
+			&quot;sender&quot;:	false
+		},
+		&quot;cpu_utilization_percent&quot;:	{
+			&quot;host_total&quot;:	16.322196739643342,
+			&quot;host_user&quot;:	0.24789180408555264,
+			&quot;host_system&quot;:	16.074304935557787,
+			&quot;remote_total&quot;:	0,
+			&quot;remote_user&quot;:	0,
+			&quot;remote_system&quot;:	0
+		},
+		&quot;receiver_tcp_congestion&quot;:	&quot;cubic&quot;
+	}
+}</pre></section>
+
+<h2>What I learned</h2>
+<section id="answers"><section id="answer-design"><h3>Describe your design: hypervisors, tenants, VNIs and addresses. Which tenants overlap, and why did you place each VM where you did?</h3><p>The underlay is 10.45.0.0/24 with cedar at 10.45.0.1, maple at 10.45.0.2 and birch at 10.45.0.3, connected through Linux bridge s1. Studio uses VNI 145 and archive uses VNI 245. Both deliberately use 10.45.50.0/24. Studio&#x27;s st1, st2 and st3 occupy cedar, maple and birch respectively; st4 is also on cedar. Archive&#x27;s ar1, ar2 and ar3 occupy the three hypervisors in that order. This spreads both tenants across all three failure domains, enables observation from an uninvolved VTEP, and includes a same-hypervisor path for comparison. Every hypervisor hosts both tenants.</p><p>VM addresses follow the supplied allocation rule: studio uses .10 through .13 and archive uses .10 through .12. The MACs encode the VNI, so st2 is 02:00:00:91:00:0b while ar2 is 02:00:00:f5:00:0b despite both having 10.45.50.11. Each tenant has its own bridge and VXLAN device. The selected design uses 1500-byte guest MTUs with a 9000-byte underlay. These are Linux namespace hosts modelling hypervisors and VMs, not separate virtual machines or physical failure domains.</p></section>
+<section id="answer-isolation"><h3>Two of your VMs have the same IP address. Using your evidence, explain how a ping reaches the right one — and what would have to go wrong for one tenant to see another&#x27;s traffic.</h3><p>In evidence6/isolation.txt, st1 successfully pinged 10.45.50.11 in studio while tcpdump on archive&#x27;s ar2, which owns the identical destination address, captured zero ARP or ICMP packets. The reverse experiment let ar1 reach ar2 while st2 captured zero such packets. All 18 directed within-tenant VM pairs then passed, including st1 and st4 on the same hypervisor. Neighbour tables associated .11 with studio MAC 02:00:00:91:00:0b on st1 and archive MAC 02:00:00:f5:00:0b on ar1.</p><p>The VM&#x27;s access port selects its tenant bridge before encapsulation. That bridge sends remote traffic through its own VNI; the receiving VTEP demultiplexes VNI 145 to br145 and VNI 245 to br245. Thus destination IP alone never selects a tenant. Incorrect access-port membership, a mistaken VNI mapping, or an unintended connection between bridges could break this isolation. VNI separation is not encryption or authentication: these tests establish separation for the configured trusted underlay, not protection against an attacker able to inject VXLAN packets.</p></section>
+<section id="answer-flood_learn"><h3>Using your evidence, explain what was flooded, to which hypervisors, and what each VTEP learned. With 50 hypervisors in one VNI, how many copies would one broadcast need — and how would EVPN change that?</h3><p>Before traffic, evidence6/flood.txt shows permanent all-zero MAC entries on each VXLAN device for the other two tenant VTEPs, but no dynamically learned VM destinations. Cedar replicated studio&#x27;s initial ARP request to maple and birch. Birch, which hosts neither communicating VM, captured one VXLAN packet with VNI 145 containing the broadcast ARP request from st1 for 10.45.50.11. The ARP response and subsequent ICMP exchange used the learned path. Afterwards cedar mapped st2&#x27;s MAC to 10.45.0.2, maple mapped st1&#x27;s MAC to 10.45.0.1, and birch learned st1&#x27;s source MAC from the flooded request. A repeated ping succeeded while birch captured zero VXLAN packets.</p><p>The bridge FDB chooses a local access port or the VXLAN port; the VXLAN FDB maps an inner destination MAC to a remote underlay IP. Permanent zero-MAC entries provide head-end replication for broadcast, multicast and unknown unicast; learned entries provide specific unicast destinations. A broadcast from one of 50 participating hypervisors needs 49 remote copies with this ingress-replication model, plus local delivery as appropriate. An EVPN control plane can advertise MAC/IP reachability and VTEP membership through BGP, reducing unknown-unicast flooding and enabling ARP suppression. It does not eliminate every broadcast: remaining broadcast/multicast traffic still requires replication or a multicast tree. This explanation follows RFC 8365, https://www.rfc-editor.org/rfc/rfc8365.html; EVPN was not implemented in this lab.</p></section>
+<section id="answer-mtu"><h3>Compare your two MTU fixes using your measurements. Which would you choose for a data centre, what does each cost, and who has to change what?</h3><p>The IPv4 underlay must carry the guest IP packet plus 14 bytes of inner Ethernet, 8 bytes of VXLAN, 8 bytes of UDP and 20 bytes of outer IPv4: 50 bytes total. Thus the original 1500/1500 design needs 1550 underlay bytes and is rejected for both tenants, each exceeding capacity by 50 bytes (evidence6/check.txt). This calculation compares IP MTUs; outer Ethernet and its FCS are outside the underlay IP MTU. The separate IPv6 lab replaces the 20-byte IPv4 header with a 40-byte IPv6 header, increasing overhead to 70 bytes and yielding an observed VXLAN MTU of 1430 on underlay 1500.</p><p>In evidence6/fixes.txt, Fix A (tenant 1450, underlay 1500) passed DF ping payload 1422 and rejected 1423 locally. Fix B (tenant 1500, underlay 9000) passed 1472 and rejected 1473 locally. IPv4 ping contributes 20 IP and 8 ICMP bytes, so these boundaries follow directly from the guest MTUs. Three-second iperf3 tests reported actual receiver rates of 1373.679 Mbit/s for A and 1443.209 Mbit/s for B. These single software-emulation samples, on a shared Docker/WSL host with Mininet resource-limit warnings, do not establish a repeatable performance ranking.</p><p>The forced faulty design in evidence6/blackhole.txt passed small packets but its adjacent boundary was 1422 successful and 1423 failing, with 0.000 Mbit/s TCP receiver throughput. Linux refused an attempt to configure a 1500-byte VXLAN interface over a bound 1500-byte underlay (the original failed attempt is retained in evidence6/debugging.txt). The builder therefore caps the VXLAN interface at its legal 1450 capacity in forced mode while leaving guests at the intentionally wrong 1500 MTU. Large forwarded frames are lost at the bridge-to-tunnel boundary rather than establishing a working 1550-byte path; this is an MTU black hole for the guests. It must not be confused with the separate receive-side 1400-byte-underlay lab, whose observed boundary was 1326/1327 and whose receiver drop counter rose from 0 to 26.</p><p>I select Fix B for a managed data centre: it preserves standard 1500-byte guests and leaves tunnel headroom, provided every underlay NIC, bridge port and fabric link supports and is configured for jumbo frames. The minimum needed here is 1550; 9000 is a deliberate fabric policy, not the VXLAN overhead. It costs coordinated fabric configuration and end-to-end MTU verification. Fix A is preferable where the transport cannot change, but requires consistent guest/DHCP/interface MTU changes and slightly smaller TCP segments. Both are valid; merely changing a VTEP while leaving an intermediate link at 1500 can recreate the black hole.</p></section>
+<section id="answer-p4"><h3>If your hypervisors&#x27; VTEPs were P4 switches running the lecture&#x27;s vtep.p4, what would have to fill the vtep_encap table, and how? What would replace flood-and-learn?</h3><p>The lecture&#x27;s vtep.p4 and the previous Week 5 implementation are absent from this repository and its inspected Git history, so I cannot verify the exact vtep_encap keys, action names or header layout. Conceptually a trusted controller or provisioning agent must install the tenant-scoped destination-to-remote-VTEP mapping, together with the local VTEP address, VNI, next-hop/egress information and any required encapsulation parameters. For example, traffic from studio to st2 needs the VNI 145 mapping toward maple at 10.45.0.2, whereas archive&#x27;s identical destination IP belongs to VNI 245. The exact table writes must be adapted to the actual P4Info/program, using P4Runtime or the target&#x27;s supported control interface.</p><p>Static orchestration could derive these mappings from overlay.yaml, or an EVPN/BGP control plane could distribute MAC/IP and VTEP reachability for an agent to translate into table entries. Those programmed mappings would replace data-plane flood-and-learn for known destinations. Broadcast/ARP handling still needs an explicit policy, such as controlled replication plus ARP suppression; a P4 table does not discover remote MACs by itself. Packet-in/digest-based reactive learning is another possible design, but was not implemented or measured here. The lab README compares VXLAN with a clearly identified public P4 tutorial reference without presenting that reference as my unavailable Week 5 coursework.</p></section></section>
+
+<script type="application/json" id="overlay-data">{
+  "design": {
+    "student_id_last4": "1945",
+    "underlay": {
+      "network": "10.45.0.0/24",
+      "mtu": 9000
+    },
+    "hypervisors": [
+      "cedar",
+      "maple",
+      "birch"
+    ],
+    "tenants": [
+      {
+        "name": "studio",
+        "vni": 145,
+        "network": "10.45.50.0/24",
+        "mtu": 1500,
+        "vms": [
+          [
+            "st1",
+            "cedar"
+          ],
+          [
+            "st2",
+            "maple"
+          ],
+          [
+            "st3",
+            "birch"
+          ],
+          [
+            "st4",
+            "cedar"
+          ]
+        ]
+      },
+      {
+        "name": "archive",
+        "vni": 245,
+        "network": "10.45.50.0/24",
+        "mtu": 1500,
+        "vms": [
+          [
+            "ar1",
+            "cedar"
+          ],
+          [
+            "ar2",
+            "maple"
+          ],
+          [
+            "ar3",
+            "birch"
+          ]
+        ]
+      }
+    ]
+  },
+  "commands": {
+    "cedar": [
+      "ip link add br145 type bridge",
+      "ip link set br145 mtu 1500 up",
+      "ip link add vxlan145 type vxlan id 145 local 10.45.0.1 dstport 4789 dev cedar-eth0",
+      "ip link set vxlan145 master br145",
+      "ip link set vxlan145 mtu 1500 up",
+      "ip link set cedar-eth1 master br145",
+      "ip link set cedar-eth1 mtu 1500 up",
+      "ip link set cedar-eth2 master br145",
+      "ip link set cedar-eth2 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3",
+      "ip link add br245 type bridge",
+      "ip link set br245 mtu 1500 up",
+      "ip link add vxlan245 type vxlan id 245 local 10.45.0.1 dstport 4789 dev cedar-eth0",
+      "ip link set vxlan245 master br245",
+      "ip link set vxlan245 mtu 1500 up",
+      "ip link set cedar-eth3 master br245",
+      "ip link set cedar-eth3 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3"
+    ],
+    "maple": [
+      "ip link add br145 type bridge",
+      "ip link set br145 mtu 1500 up",
+      "ip link add vxlan145 type vxlan id 145 local 10.45.0.2 dstport 4789 dev maple-eth0",
+      "ip link set vxlan145 master br145",
+      "ip link set vxlan145 mtu 1500 up",
+      "ip link set maple-eth1 master br145",
+      "ip link set maple-eth1 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.3",
+      "ip link add br245 type bridge",
+      "ip link set br245 mtu 1500 up",
+      "ip link add vxlan245 type vxlan id 245 local 10.45.0.2 dstport 4789 dev maple-eth0",
+      "ip link set vxlan245 master br245",
+      "ip link set vxlan245 mtu 1500 up",
+      "ip link set maple-eth2 master br245",
+      "ip link set maple-eth2 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.3"
+    ],
+    "birch": [
+      "ip link add br145 type bridge",
+      "ip link set br145 mtu 1500 up",
+      "ip link add vxlan145 type vxlan id 145 local 10.45.0.3 dstport 4789 dev birch-eth0",
+      "ip link set vxlan145 master br145",
+      "ip link set vxlan145 mtu 1500 up",
+      "ip link set birch-eth1 master br145",
+      "ip link set birch-eth1 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.1",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan145 dst 10.45.0.2",
+      "ip link add br245 type bridge",
+      "ip link set br245 mtu 1500 up",
+      "ip link add vxlan245 type vxlan id 245 local 10.45.0.3 dstport 4789 dev birch-eth0",
+      "ip link set vxlan245 master br245",
+      "ip link set vxlan245 mtu 1500 up",
+      "ip link set birch-eth2 master br245",
+      "ip link set birch-eth2 mtu 1500 up",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.1",
+      "bridge fdb append 00:00:00:00:00:00 dev vxlan245 dst 10.45.0.2"
+    ]
+  }
+}</script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true });
+</script>
+</body>
+</html>

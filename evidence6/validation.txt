@@ -23,7 +23,7 @@ PASS nonempty actual transcript: evidence6/blackhole.txt (53642 bytes)
 PASS nonempty actual transcript: evidence6/fixes.txt (34186 bytes)
 PASS nonempty actual transcript: evidence6/lab.txt (94641 bytes)
 PASS nonempty actual transcript: evidence6/docker.txt (4041 bytes)
-PASS nonempty actual transcript: evidence6/environment.txt (8777 bytes)
+PASS nonempty actual transcript: evidence6/environment.txt (9007 bytes)
 PASS nonempty actual transcript: evidence6/debugging.txt (21821 bytes)
 PASS no previously tracked coursework outside Week 6 changed
 PASS runtime transcript: 18 directed pairs and two zero-packet cross-tenant captures
